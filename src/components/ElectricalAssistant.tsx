@@ -1,5 +1,14 @@
-import { useState, useRef, useEffect } from 'react';
-import { Send, X, Zap, ChevronDown } from 'lucide-react';
+import { useState, useRef, useEffect } from "react";
+import { Send, X, Zap, ChevronDown } from "lucide-react";
+
+declare global {
+  interface Window {
+    electricalAssistantConfig?: {
+      supabaseUrl: string;
+      supabaseKey: string;
+    };
+  }
+}
 
 interface Message {
   id: string;
@@ -12,26 +21,29 @@ interface Message {
 interface ServiceRecommendation {
   service: string;
   description: string;
-  urgency: 'low' | 'medium' | 'high';
+  urgency: "low" | "medium" | "high";
   estimatedTime: string;
 }
 
 export default function ElectricalAssistant() {
   const [isOpen, setIsOpen] = useState(false);
+
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
-      text: 'Olá! Sou o assistente da Obelisco Radical. Descreva seu problema elétrico e vou ajudar a encontrar a solução ideal.',
+      id: "1",
+      text: "Olá! Sou o assistente da Obelisco Radical. Descreva seu problema elétrico e vou ajudar a encontrar a solução ideal.",
       isUser: false,
       timestamp: new Date(),
     },
   ]);
-  const [inputValue, setInputValue] = useState('');
+
+  const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -41,27 +53,39 @@ export default function ElectricalAssistant() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    const config = window.electricalAssistantConfig;
+    const supabaseUrl = config?.supabaseUrl;
+    const supabaseKey = config?.supabaseKey;
+
+    const messageToSend = inputValue;
+
     const userMessage: Message = {
       id: Date.now().toString(),
-      text: inputValue,
+      text: messageToSend,
       isUser: true,
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
+    setInputValue("");
     setIsLoading(true);
 
     try {
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Configuração do Supabase não encontrada.");
+      }
+
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/electrical-assistant`,
+        `${supabaseUrl}/functions/v1/electrical-assistant`,
         {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
+            Authorization: `Bearer ${supabaseKey}`,
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({ message: inputValue }),
+          body: JSON.stringify({
+            message: messageToSend,
+          }),
         }
       );
 
@@ -69,28 +93,33 @@ export default function ElectricalAssistant() {
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: data.response,
+        text:
+          data?.response ||
+          "Recebi sua mensagem, mas não consegui gerar uma resposta agora.",
         isUser: false,
         timestamp: new Date(),
-        serviceRecommendation: data.recommendation,
+        serviceRecommendation: data?.recommendation,
       };
 
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
+      console.error(error);
+
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Desculpe, ocorreu um erro. Por favor, tente novamente.',
+        text: "Desculpe, ocorreu um erro. Por favor, tente novamente.",
         isUser: false,
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
       e.preventDefault();
       handleSendMessage();
     }
@@ -98,23 +127,23 @@ export default function ElectricalAssistant() {
 
   const getUrgencyColor = (urgency: string) => {
     switch (urgency) {
-      case 'high':
-        return 'bg-red-500/10 border-red-500/30 text-red-400';
-      case 'medium':
-        return 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400';
+      case "high":
+        return "bg-red-500/10 border-red-500/30 text-red-400";
+      case "medium":
+        return "bg-yellow-500/10 border-yellow-500/30 text-yellow-400";
       default:
-        return 'bg-green-500/10 border-green-500/30 text-green-400';
+        return "bg-green-500/10 border-green-500/30 text-green-400";
     }
   };
 
   const getUrgencyLabel = (urgency: string) => {
     switch (urgency) {
-      case 'high':
-        return 'Alta Urgência';
-      case 'medium':
-        return 'Urgência Moderada';
+      case "high":
+        return "Alta Urgência";
+      case "medium":
+        return "Urgência Moderada";
       default:
-        return 'Urgência Baixa';
+        return "Urgência Baixa";
     }
   };
 
@@ -127,29 +156,35 @@ export default function ElectricalAssistant() {
         >
           <div className="rounded-2xl bg-yellow-400 px-4 py-3 font-semibold text-zinc-950 shadow-2xl">
             <span className="block whitespace-nowrap">Conte-me aqui</span>
-            <span className="block whitespace-nowrap text-sm">seu problema elétrico</span>
+            <span className="block whitespace-nowrap text-sm">
+              seu problema elétrico
+            </span>
           </div>
           <ChevronDown className="h-5 w-5 text-yellow-400 animate-bounce" />
         </button>
       )}
 
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-40 w-96 flex flex-col bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden" style={{ height: '600px' }}>
+        <div
+          className="fixed bottom-6 right-6 z-40 w-96 flex flex-col bg-zinc-950 border border-zinc-800 rounded-3xl shadow-2xl overflow-hidden"
+          style={{ height: "600px" }}
+        >
           <div className="bg-gradient-to-r from-yellow-400 to-yellow-500 text-zinc-950 px-6 py-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-zinc-950/20 p-2 rounded-lg">
-                <Zap size={24} className="text-zinc-950" />
+                <Zap size={24} />
               </div>
               <div>
                 <h3 className="font-bold text-lg">Assistente Elétrico</h3>
                 <p className="text-xs text-zinc-900">Obelisco Radical</p>
               </div>
             </div>
+
             <button
               onClick={() => setIsOpen(false)}
               className="hover:bg-zinc-950/20 p-2 rounded-lg transition-colors"
             >
-              <X size={20} className="text-zinc-950" />
+              <X size={20} />
             </button>
           </div>
 
@@ -157,22 +192,31 @@ export default function ElectricalAssistant() {
             {messages.map((message) => (
               <div
                 key={message.id}
-                className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+                className={`flex ${
+                  message.isUser ? "justify-end" : "justify-start"
+                }`}
               >
                 <div
                   className={`max-w-[80%] ${
                     message.isUser
-                      ? 'bg-yellow-400 text-zinc-950 rounded-2xl rounded-br-sm'
-                      : 'bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-sm border border-zinc-700'
+                      ? "bg-yellow-400 text-zinc-950 rounded-2xl rounded-br-sm"
+                      : "bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-sm border border-zinc-700"
                   } px-4 py-3`}
                 >
                   <p className="text-sm leading-relaxed">{message.text}</p>
 
                   {message.serviceRecommendation && (
                     <div className="mt-3 pt-3 border-t border-zinc-600">
-                      <div className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-2 border ${getUrgencyColor(message.serviceRecommendation.urgency)}`}>
-                        {getUrgencyLabel(message.serviceRecommendation.urgency)}
+                      <div
+                        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mb-2 border ${getUrgencyColor(
+                          message.serviceRecommendation.urgency
+                        )}`}
+                      >
+                        {getUrgencyLabel(
+                          message.serviceRecommendation.urgency
+                        )}
                       </div>
+
                       <div className="bg-zinc-900/60 p-3 rounded-lg border border-zinc-700">
                         <p className="font-bold text-yellow-400 mb-1">
                           {message.serviceRecommendation.service}
@@ -181,7 +225,8 @@ export default function ElectricalAssistant() {
                           {message.serviceRecommendation.description}
                         </p>
                         <p className="text-xs text-zinc-400">
-                          ⏱️ Tempo estimado: {message.serviceRecommendation.estimatedTime}
+                          ⏱️ Tempo estimado:{" "}
+                          {message.serviceRecommendation.estimatedTime}
                         </p>
                       </div>
                     </div>
@@ -189,17 +234,15 @@ export default function ElectricalAssistant() {
                 </div>
               </div>
             ))}
+
             {isLoading && (
               <div className="flex justify-start">
                 <div className="bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-sm px-4 py-3 border border-zinc-700">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                    <div className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                    <div className="w-2 h-2 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  </div>
+                  Digitando...
                 </div>
               </div>
             )}
+
             <div ref={messagesEndRef} />
           </div>
 
@@ -209,15 +252,14 @@ export default function ElectricalAssistant() {
                 type="text"
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={handleKeyPress}
+                onKeyDown={handleKeyPress}
                 placeholder="Descreva seu problema..."
-                className="flex-1 px-4 py-3 border border-zinc-700 bg-zinc-950 rounded-xl focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent text-sm text-white placeholder-zinc-500"
-                disabled={isLoading}
+                className="flex-1 px-4 py-3 border border-zinc-700 bg-zinc-950 rounded-xl text-white"
               />
+
               <button
                 onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-                className="bg-yellow-400 hover:bg-yellow-300 disabled:bg-zinc-700 disabled:cursor-not-allowed text-zinc-950 p-3 rounded-xl transition-colors font-medium"
+                className="bg-yellow-400 hover:bg-yellow-300 text-zinc-950 p-3 rounded-xl"
               >
                 <Send size={20} />
               </button>
