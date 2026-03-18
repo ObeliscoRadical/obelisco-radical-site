@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { startCheckout } from "@easypaypt/checkout-sdk";
 import ElectricalAssistant from "./components/ElectricalAssistant";
 import {
   Menu,
@@ -26,12 +27,16 @@ import {
   ArrowLeft,
   Calendar as CalendarIcon,
   Loader2,
+  CreditCard,
+  Smartphone,
+  Landmark,
 } from "lucide-react";
 
-// Logo URL - usando imagem externa
+// Logo URL
 const logoUrl = "https://customer-assets.emergentagent.com/job_5fce1f4d-80cf-4626-b6e9-65e04d47c472/artifacts/h167wiyk_Captura%20de%20Tela%202026-03-12%20a%CC%80s%2021.48.12.png";
 
-// API do app de pedidos
+// API URLs
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const ORDERS_API = "https://tech-app-obelisco.emergent.host/api";
 
 const services = [
@@ -195,7 +200,7 @@ function BookingModal({
   const [notes, setNotes] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) setService(initialService || "");
   }, [initialService, open]);
 
@@ -467,6 +472,223 @@ function BookingModal({
   );
 }
 
+// Easypay Checkout Component
+function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [checkoutInstance, setCheckoutInstance] = useState(null);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    // Reset when modal closes
+    if (!open) {
+      setInitialized(false);
+      setError(null);
+      if (checkoutInstance) {
+        try {
+          checkoutInstance.unmount();
+        } catch (e) {
+          console.log("Unmount error:", e);
+        }
+        setCheckoutInstance(null);
+      }
+    }
+  }, [open, checkoutInstance]);
+
+  useEffect(() => {
+    if (!open || !orderData || orderData.value <= 0 || initialized) return;
+
+    const initializeCheckout = async () => {
+      setLoading(true);
+      setError(null);
+      setInitialized(true);
+
+      try {
+        // Create checkout session on backend
+        const response = await fetch(`${BACKEND_URL}/api/checkout/create-session`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            value: orderData.value,
+            currency: "EUR",
+            items: orderData.items,
+            customer: {
+              name: orderData.customer.name,
+              email: orderData.customer.email,
+              phone: orderData.customer.phone,
+            },
+            payment_methods: ["cc", "mbw", "mb"],
+            order_id: orderData.orderId,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Failed to create checkout session");
+        }
+
+        const sessionData = await response.json();
+        console.log("Checkout session created:", sessionData);
+
+        // Initialize Easypay checkout form
+        const instance = startCheckout(sessionData.session, {
+          display: "inline",
+          id: "easypay-checkout-container",
+          language: "pt",
+
+          onSuccess: (checkoutInfo) => {
+            console.log("Payment successful:", checkoutInfo);
+            onPaymentSuccess({
+              paymentId: checkoutInfo?.id || sessionData.payment_id,
+              status: "success",
+              method: checkoutInfo?.method,
+              amount: orderData.value,
+            });
+          },
+
+          onError: (err) => {
+            console.error("Checkout error:", err);
+            setError(`Erro no pagamento: ${err?.message || "Tente novamente"}`);
+          },
+
+          onPaymentError: (err) => {
+            console.warn("Recoverable payment error:", err);
+            if (err?.code === "checkout-expired") {
+              setError("Sessao expirada. Por favor, feche e tente novamente.");
+            }
+          },
+
+          onClose: () => {
+            console.log("Checkout closed by user");
+          },
+
+          // Customization
+          logoUrl: logoUrl,
+          accentColor: "#FACC15",
+          backgroundColor: "#18181B",
+          buttonBackgroundColor: "#FACC15",
+          buttonBorderRadius: 16,
+          inputBorderRadius: 16,
+          inputBorderColor: "#3F3F46",
+          inputBackgroundColor: "#27272A",
+          inputColor: "#FFFFFF",
+          fontFamily: "Inter, sans-serif",
+        });
+
+        setCheckoutInstance(instance);
+      } catch (err) {
+        console.error("Checkout initialization failed:", err);
+        setError(err.message || "Erro ao iniciar pagamento");
+        setInitialized(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeCheckout();
+  }, [open, orderData, initialized, onPaymentSuccess]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+      <div className="max-h-[95vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl">
+        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-6 py-5 backdrop-blur">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-400">
+              <CreditCard className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black uppercase tracking-wide text-white">
+                Pagamento Seguro
+              </h3>
+              <p className="text-sm text-zinc-400">
+                Powered by Easypay
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-zinc-800 p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-white"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {/* Order Summary */}
+          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
+            <h4 className="mb-3 font-semibold text-white">Resumo do Pedido</h4>
+            {orderData?.items?.map((item, idx) => (
+              <div key={idx} className="flex justify-between text-sm text-zinc-400">
+                <span>{item.description} x{item.quantity}</span>
+                <span>EUR{(item.value * item.quantity).toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="mt-3 flex justify-between border-t border-zinc-800 pt-3">
+              <span className="font-semibold text-white">Total</span>
+              <span className="text-xl font-bold text-yellow-400">
+                EUR{orderData?.value?.toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          {/* Payment Methods Info */}
+          <div className="mb-6 flex justify-center gap-6">
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <CreditCard className="h-5 w-5" />
+              <span>Cartao</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <Smartphone className="h-5 w-5" />
+              <span>MB Way</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-zinc-400">
+              <Landmark className="h-5 w-5" />
+              <span>Multibanco</span>
+            </div>
+          </div>
+
+          {loading && (
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-10 w-10 animate-spin text-yellow-400" />
+              <p className="mt-4 text-zinc-400">A iniciar pagamento seguro...</p>
+            </div>
+          )}
+
+          {error && (
+            <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center">
+              <p className="text-red-300">{error}</p>
+              <button
+                onClick={initializeCheckout}
+                className="mt-3 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white"
+              >
+                Tentar Novamente
+              </button>
+            </div>
+          )}
+
+          {/* Easypay Checkout Container */}
+          <div
+            id="easypay-checkout-container"
+            className="min-h-[400px] rounded-2xl"
+            style={{
+              display: loading ? "none" : "block",
+            }}
+          />
+
+          <p className="mt-4 text-center text-xs text-zinc-500">
+            Pagamento processado de forma segura pela Easypay. Os seus dados estao protegidos.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
@@ -483,11 +705,12 @@ export default function App() {
   const [customerNotes, setCustomerNotes] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("");
 
-  // Estados para feedback do checkout
+  // Payment states
+  const [checkoutStep, setCheckoutStep] = useState("form"); // form, payment, success
+  const [showEasypayCheckout, setShowEasypayCheckout] = useState(false);
+  const [easypayOrderData, setEasypayOrderData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
   const nav = [
@@ -562,14 +785,15 @@ export default function App() {
     setCustomerNotes("");
     setSelectedDate("");
     setSelectedTime("");
-    setPaymentMethod("");
-    setSubmitSuccess(false);
+    setCheckoutStep("form");
+    setShowEasypayCheckout(false);
+    setEasypayOrderData(null);
     setSubmitError("");
     setCartOpen(false);
   };
 
-  // Funcao para enviar pedido para a API
-  const handleCheckout = async () => {
+  // Proceed to payment
+  const handleProceedToPayment = async () => {
     const normalizedCustomerPhone = customerPhone.replace(/\s+/g, "");
 
     if (
@@ -579,8 +803,7 @@ export default function App() {
       normalizedCustomerPhone.length < 9 ||
       !customerAddress ||
       !selectedDate ||
-      !selectedTime ||
-      !paymentMethod
+      !selectedTime
     ) {
       setSubmitError("Por favor, preencha todos os campos obrigatorios.");
       return;
@@ -589,35 +812,79 @@ export default function App() {
     setIsSubmitting(true);
     setSubmitError("");
 
-    const paymentLabels = {
-      mbway: "MB Way",
-      transferencia: "Transferencia Bancaria",
-      dinheiro: "Dinheiro",
-      cartao: "Cartao no local",
-    };
+    try {
+      // Generate order ID
+      const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Criar descricao com todos os servicos
-    const servicesDescription = cart
-      .map((item) => `${item.title} (${item.quantity}x) - EUR${item.price * item.quantity}`)
-      .join("\n");
+      // Prepare order data for Easypay
+      const orderData = {
+        value: total,
+        orderId: orderId,
+        items: [
+          ...cart.map((item) => ({
+            description: item.title,
+            quantity: item.quantity,
+            value: item.price * item.quantity,
+          })),
+          {
+            description: "Taxa de deslocacao",
+            quantity: 1,
+            value: travelFee,
+          },
+        ],
+        customer: {
+          name: customerName,
+          email: customerEmail,
+          phone: normalizedCustomerPhone,
+        },
+        metadata: {
+          address: customerAddress,
+          postalCode: customerPostalCode,
+          notes: customerNotes,
+          date: selectedDate,
+          time: selectedTime,
+        },
+      };
 
-    const fullDescription = `SERVICOS SOLICITADOS:
+      setEasypayOrderData(orderData);
+      setShowEasypayCheckout(true);
+    } catch (error) {
+      console.error("Error preparing payment:", error);
+      setSubmitError("Erro ao preparar pagamento. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle payment success
+  const handlePaymentSuccess = async (paymentData) => {
+    console.log("Payment success:", paymentData);
+    setShowEasypayCheckout(false);
+
+    // Send order to management app
+    try {
+      const servicesDescription = cart
+        .map((item) => `${item.title} (${item.quantity}x) - EUR${item.price * item.quantity}`)
+        .join("\n");
+
+      const fullDescription = `SERVICOS SOLICITADOS:
 ${servicesDescription}
 
 Subtotal: EUR${subtotal}
 Taxa de deslocacao: EUR${travelFee}
-Total estimado: EUR${total}
+Total: EUR${total}
+
+PAGAMENTO CONFIRMADO via Easypay
+ID Pagamento: ${paymentData.paymentId}
+Metodo: ${paymentData.method || "Online"}
 
 Codigo Postal: ${customerPostalCode || "Nao informado"}
 Horario preferido: ${selectedTime}
-Forma de pagamento: ${paymentLabels[paymentMethod] || paymentMethod}
 Observacoes: ${customerNotes || "Sem observacoes"}`;
 
-    // Determinar o tipo de servico principal (primeiro do carrinho)
-    const mainServiceType = cart.length > 0 ? cart[0].id : "manutencao";
+      const mainServiceType = cart.length > 0 ? cart[0].id : "manutencao";
 
-    try {
-      const response = await fetch(`${ORDERS_API}/orders/public`, {
+      await fetch(`${ORDERS_API}/orders/public`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -625,27 +892,18 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
         body: JSON.stringify({
           client_name: customerName,
           email: customerEmail,
-          phone: normalizedCustomerPhone,
+          phone: customerPhone.replace(/\s+/g, ""),
           address: customerAddress,
           service_type: mainServiceType,
           preferred_date: selectedDate,
           description: fullDescription,
         }),
       });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        setSubmitSuccess(true);
-      } else {
-        setSubmitError(data.message || "Erro ao enviar pedido. Tente novamente.");
-      }
     } catch (error) {
-      console.error("Erro ao enviar pedido:", error);
-      setSubmitError("Erro de conexao. Por favor, tente novamente.");
-    } finally {
-      setIsSubmitting(false);
+      console.error("Error sending to management app:", error);
     }
+
+    setCheckoutStep("success");
   };
 
   return (
@@ -725,6 +983,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
       </header>
 
       <main>
+        {/* Hero Section */}
         <section
           id="hero"
           className="relative flex min-h-screen items-center overflow-hidden pt-20"
@@ -793,22 +1052,37 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 transition={{ duration: 0.7, delay: 0.3 }}
                 className="mt-9 flex flex-col gap-4 sm:flex-row"
               >
-                <a
-                  href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
-                  className="inline-flex items-center justify-center rounded-2xl bg-yellow-400 px-8 py-4 text-base font-semibold uppercase tracking-wide text-zinc-950 transition hover:bg-yellow-300"
-                  data-testid="hero-whatsapp-btn"
-                >
-                  Pedir orcamento no WhatsApp
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </a>
-
                 <button
                   onClick={() => scrollToSection("services")}
-                  className="rounded-2xl border border-zinc-700 bg-zinc-900 px-8 py-4 text-base font-medium text-white transition hover:bg-zinc-800"
+                  className="inline-flex items-center justify-center rounded-2xl bg-yellow-400 px-8 py-4 text-base font-semibold uppercase tracking-wide text-zinc-950 transition hover:bg-yellow-300"
                   data-testid="hero-services-btn"
                 >
-                  Ver servicos
+                  Ver servicos e Pagar Online
+                  <CreditCard className="ml-2 h-4 w-4" />
                 </button>
+
+                <a
+                  href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
+                  className="rounded-2xl border border-zinc-700 bg-zinc-900 px-8 py-4 text-base font-medium text-white transition hover:bg-zinc-800"
+                >
+                  WhatsApp
+                </a>
+              </motion.div>
+
+              {/* Payment Methods Badge */}
+              <motion.div
+                initial={{ opacity: 0, y: 28 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.4 }}
+                className="mt-6 inline-flex items-center gap-4 rounded-2xl border border-green-500/30 bg-green-500/10 px-4 py-3"
+              >
+                <span className="text-sm font-medium text-green-300">Pagamento Online:</span>
+                <div className="flex items-center gap-3 text-zinc-400">
+                  <CreditCard className="h-5 w-5" />
+                  <Smartphone className="h-5 w-5" />
+                  <Landmark className="h-5 w-5" />
+                </div>
+                <span className="text-xs text-zinc-500">Cartao | MB Way | Multibanco</span>
               </motion.div>
 
               <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -866,14 +1140,14 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 <div className="space-y-4">
                   {[
                     {
-                      Icon: ShieldCheck,
-                      title: "Execucao segura e profissional",
-                      text: "Servicos eletricos realizados com atencao aos detalhes e total seguranca.",
+                      Icon: CreditCard,
+                      title: "Pagamento Online Seguro",
+                      text: "Pague com Cartao, MB Way ou Multibanco diretamente no site.",
                     },
                     {
-                      Icon: Wrench,
-                      title: "Solucoes para casas e empresas",
-                      text: "Instalacoes, reparacoes e manutencao eletrica para residencias e espacos comerciais.",
+                      Icon: ShieldCheck,
+                      title: "Execucao segura e profissional",
+                      text: "Servicos eletricos realizados com atencao aos detalhes.",
                     },
                     {
                       Icon: MessageCircle,
@@ -900,6 +1174,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
 
         <div className="mx-auto h-px max-w-7xl bg-gradient-to-r from-transparent via-yellow-400/70 to-transparent" />
 
+        {/* Services Section */}
         <section
           id="services"
           className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8"
@@ -915,18 +1190,16 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 comercios e empresas na Grande Lisboa.
               </p>
 
-              <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-yellow-500/30 bg-yellow-400/10 px-4 py-2 text-sm font-medium text-yellow-300">
-                Taxa de deslocacao: EUR35
+              <div className="mt-5 flex flex-wrap gap-3">
+                <div className="inline-flex items-center gap-2 rounded-full border border-yellow-500/30 bg-yellow-400/10 px-4 py-2 text-sm font-medium text-yellow-300">
+                  Taxa de deslocacao: EUR35
+                </div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-green-500/30 bg-green-500/10 px-4 py-2 text-sm font-medium text-green-300">
+                  <CreditCard className="h-4 w-4" />
+                  Pagamento Online Disponivel
+                </div>
               </div>
             </div>
-
-            <a
-              href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
-              className="inline-flex items-center rounded-2xl border border-zinc-700 px-5 py-3 text-sm font-medium text-white transition hover:border-yellow-400 hover:text-yellow-300"
-            >
-              Falar no WhatsApp
-              <ChevronRight className="ml-2 h-4 w-4" />
-            </a>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -964,7 +1237,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                         className="rounded-xl bg-yellow-400 px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:bg-yellow-300"
                         data-testid={`add-service-${service.id}`}
                       >
-                        Pedir este servico
+                        Adicionar
                       </button>
                     </div>
                   </div>
@@ -974,6 +1247,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           </div>
         </section>
 
+        {/* Vantagens Section */}
         <section
           id="vantagens"
           className="bg-zinc-900/50 px-4 py-24 sm:px-6 lg:px-8"
@@ -1038,6 +1312,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           </div>
         </section>
 
+        {/* Testimonials */}
         <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8">
           <div className="grid gap-6 lg:grid-cols-3">
             {testimonials.map((item, i) => (
@@ -1062,6 +1337,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           </div>
         </section>
 
+        {/* FAQ */}
         <section
           id="faq"
           className="border-y border-zinc-800 bg-zinc-900/40 px-4 py-24 sm:px-6 lg:px-8"
@@ -1087,6 +1363,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           </div>
         </section>
 
+        {/* Contact */}
         <section
           id="contact"
           className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8"
@@ -1106,20 +1383,20 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 </p>
 
                 <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+                  <button
+                    onClick={() => scrollToSection("services")}
+                    className="inline-flex items-center justify-center rounded-2xl bg-yellow-400 px-6 py-4 font-semibold text-zinc-950 transition hover:bg-yellow-300"
+                  >
+                    <CreditCard className="mr-2 h-5 w-5" />
+                    Pedir e Pagar Online
+                  </button>
+
                   <a
                     href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
-                    className="inline-flex items-center justify-center rounded-2xl bg-yellow-400 px-6 py-4 font-semibold text-zinc-950 transition hover:bg-yellow-300"
+                    className="rounded-2xl border border-zinc-700 px-6 py-4 font-medium text-white transition hover:border-yellow-400 hover:text-yellow-300"
                   >
                     WhatsApp: 911 132 401
                   </a>
-
-                  <button
-                    onClick={() => openBooking()}
-                    className="rounded-2xl border border-zinc-700 px-6 py-4 font-medium text-white transition hover:border-yellow-400 hover:text-yellow-300"
-                    data-testid="schedule-btn"
-                  >
-                    Agendar atendimento
-                  </button>
                 </div>
               </div>
 
@@ -1175,14 +1452,17 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
         </div>
       </footer>
 
+      {/* Cart Button */}
       <button
         onClick={() => setCartOpen(true)}
         className="fixed bottom-24 right-5 z-40 inline-flex items-center rounded-full bg-yellow-400 px-5 py-4 font-semibold text-zinc-950 shadow-2xl transition hover:bg-yellow-300"
         data-testid="cart-btn"
       >
+        <CreditCard className="mr-2 h-5 w-5" />
         Carrinho ({cartCount})
       </button>
 
+      {/* WhatsApp Button */}
       <a
         href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
         className="fixed bottom-5 right-5 z-40 inline-flex items-center rounded-full bg-green-500 px-5 py-4 font-semibold text-white shadow-2xl shadow-green-500/20 transition hover:bg-green-400"
@@ -1192,20 +1472,21 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
         WhatsApp
       </a>
 
+      {/* Cart/Checkout Modal */}
       {cartOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm">
           <div className="grid h-full w-full lg:grid-cols-[1.15fr_0.85fr]">
             <div className="h-full overflow-y-auto bg-zinc-950 px-4 py-6 sm:px-6 lg:px-10">
               <div className="mx-auto max-w-3xl">
-                {submitSuccess ? (
-                  // Tela de sucesso
+                {checkoutStep === "success" ? (
+                  // Success Screen
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-green-500/20">
                       <CheckCircle2 className="h-14 w-14 text-green-400" />
                     </div>
-                    <h2 className="text-3xl font-black text-white">Pedido Enviado com Sucesso!</h2>
+                    <h2 className="text-3xl font-black text-white">Pagamento Confirmado!</h2>
                     <p className="mt-4 max-w-md text-zinc-400">
-                      Recebemos o seu pedido e entraremos em contacto em breve para confirmar os detalhes.
+                      O seu pagamento foi processado com sucesso. Entraremos em contacto para confirmar o agendamento.
                     </p>
                     <div className="mt-6 rounded-2xl border border-yellow-500/30 bg-yellow-400/10 px-6 py-3 text-yellow-300">
                       WhatsApp: +351 911 132 401
@@ -1219,16 +1500,16 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                     </button>
                   </div>
                 ) : (
-                  // Formulario de checkout
+                  // Checkout Form
                   <>
                     <div className="mb-8">
                       <div className="mb-6 flex items-center justify-between">
                         <div>
                           <h2 className="text-3xl font-black uppercase tracking-tight text-white sm:text-4xl">
-                            Pedir <span className="text-yellow-400">orcamento</span>
+                            Checkout <span className="text-yellow-400">Seguro</span>
                           </h2>
                           <p className="mt-2 text-zinc-400">
-                            Preencha os seus dados para enviar o pedido.
+                            Preencha os dados e pague online.
                           </p>
                         </div>
 
@@ -1241,46 +1522,20 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                         </button>
                       </div>
 
-                      <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-4">
-                        <div className="grid gap-4 sm:grid-cols-3">
-                          <div className="flex items-center gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-400 font-bold text-zinc-950">
-                              1
-                            </div>
-                            <div>
-                              <div className="text-sm font-semibold text-white">
-                                Dados
-                              </div>
-                              <div className="text-xs text-zinc-400">Cliente</div>
-                            </div>
+                      {/* Payment Methods Badge */}
+                      <div className="rounded-3xl border border-green-500/30 bg-green-500/10 p-4">
+                        <div className="flex items-center justify-center gap-6">
+                          <div className="flex items-center gap-2 text-sm text-green-300">
+                            <CreditCard className="h-5 w-5" />
+                            <span>Cartao</span>
                           </div>
-
-                          <div className="flex items-center gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-400 font-bold text-zinc-950">
-                              2
-                            </div>
-                            <div>
-                              <div className="text-sm font-semibold text-white">
-                                Agendamento
-                              </div>
-                              <div className="text-xs text-zinc-400">
-                                Data e hora
-                              </div>
-                            </div>
+                          <div className="flex items-center gap-2 text-sm text-green-300">
+                            <Smartphone className="h-5 w-5" />
+                            <span>MB Way</span>
                           </div>
-
-                          <div className="flex items-center gap-3 rounded-2xl border border-yellow-500/30 bg-yellow-400/10 px-4 py-3">
-                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-yellow-400 font-bold text-zinc-950">
-                              3
-                            </div>
-                            <div>
-                              <div className="text-sm font-semibold text-white">
-                                Pagamento
-                              </div>
-                              <div className="text-xs text-zinc-400">
-                                Finalizacao
-                              </div>
-                            </div>
+                          <div className="flex items-center gap-2 text-sm text-green-300">
+                            <Landmark className="h-5 w-5" />
+                            <span>Multibanco</span>
                           </div>
                         </div>
                       </div>
@@ -1363,7 +1618,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                             value={customerNotes}
                             onChange={(e) => setCustomerNotes(e.target.value)}
                             placeholder="Observacoes sobre o servico"
-                            rows={4}
+                            rows={3}
                             className="mt-4 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
                             data-testid="customer-notes-input"
                           />
@@ -1400,41 +1655,23 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                           </div>
                         </div>
 
-                        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-                          <h3 className="mb-5 text-xl font-bold text-white">
-                            Forma de pagamento
-                          </h3>
-
-                          <select
-                            value={paymentMethod}
-                            onChange={(e) => setPaymentMethod(e.target.value)}
-                            className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
-                            data-testid="payment-select"
-                          >
-                            <option value="">Selecione a forma de pagamento *</option>
-                            <option value="mbway">MB Way</option>
-                            <option value="transferencia">
-                              Transferencia Bancaria
-                            </option>
-                            <option value="dinheiro">Dinheiro</option>
-                            <option value="cartao">Cartao no local</option>
-                          </select>
-                        </div>
-
                         <div className="lg:hidden">
                           <button
-                            onClick={handleCheckout}
+                            onClick={handleProceedToPayment}
                             disabled={isSubmitting || cart.length === 0}
-                            className="w-full rounded-2xl bg-yellow-400 px-5 py-4 font-semibold text-zinc-950 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="w-full rounded-2xl bg-green-500 px-5 py-4 font-semibold text-white transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
                             data-testid="checkout-mobile-btn"
                           >
                             {isSubmitting ? (
                               <span className="flex items-center justify-center gap-2">
                                 <Loader2 className="h-5 w-5 animate-spin" />
-                                Enviando...
+                                Preparando...
                               </span>
                             ) : (
-                              "Finalizar Pedido"
+                              <span className="flex items-center justify-center gap-2">
+                                <CreditCard className="h-5 w-5" />
+                                Pagar EUR{total.toFixed(2)}
+                              </span>
                             )}
                           </button>
                         </div>
@@ -1445,7 +1682,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
               </div>
             </div>
 
-            {!submitSuccess && (
+            {checkoutStep !== "success" && cart.length > 0 && (
               <div className="hidden h-full border-l border-zinc-800 bg-zinc-900 lg:block">
                 <div className="sticky top-0 flex h-screen flex-col overflow-y-auto px-8 py-8">
                   <div className="mb-8">
@@ -1453,7 +1690,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                       Resumo do pedido
                     </h3>
                     <p className="mt-2 text-zinc-400">
-                      Revise os servicos antes de enviar.
+                      Revise os servicos antes de pagar.
                     </p>
                   </div>
 
@@ -1501,7 +1738,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                           </div>
 
                           <div className="text-lg font-bold text-yellow-300">
-                            EUR{item.price * item.quantity}
+                            EUR{(item.price * item.quantity).toFixed(2)}
                           </div>
                         </div>
                       </div>
@@ -1512,42 +1749,45 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-400">Subtotal</span>
-                        <span className="text-white">EUR{subtotal}</span>
+                        <span className="text-white">EUR{subtotal.toFixed(2)}</span>
                       </div>
 
                       <div className="flex items-center justify-between">
                         <span className="text-zinc-400">Taxa de deslocacao</span>
-                        <span className="text-white">EUR{travelFee}</span>
+                        <span className="text-white">EUR{travelFee.toFixed(2)}</span>
                       </div>
 
                       <div className="flex items-center justify-between border-t border-zinc-800 pt-3">
                         <span className="text-lg font-semibold text-zinc-300">
-                          Total estimado
+                          Total
                         </span>
                         <span className="text-2xl font-black text-yellow-300">
-                          EUR{total}
+                          EUR{total.toFixed(2)}
                         </span>
                       </div>
                     </div>
 
                     <button
-                      onClick={handleCheckout}
+                      onClick={handleProceedToPayment}
                       disabled={isSubmitting || cart.length === 0}
-                      className="mt-6 w-full rounded-2xl bg-yellow-400 px-5 py-4 font-semibold text-zinc-950 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="mt-6 w-full rounded-2xl bg-green-500 px-5 py-4 font-semibold text-white transition hover:bg-green-400 disabled:cursor-not-allowed disabled:opacity-50"
                       data-testid="checkout-btn"
                     >
                       {isSubmitting ? (
                         <span className="flex items-center justify-center gap-2">
                           <Loader2 className="h-5 w-5 animate-spin" />
-                          Enviando...
+                          Preparando...
                         </span>
                       ) : (
-                        "Finalizar Pedido"
+                        <span className="flex items-center justify-center gap-2">
+                          <CreditCard className="h-5 w-5" />
+                          Pagar com Cartao / MB Way / Multibanco
+                        </span>
                       )}
                     </button>
 
-                    <p className="mt-4 text-sm leading-6 text-zinc-500">
-                      Ao finalizar, o seu pedido sera enviado diretamente para nossa equipe.
+                    <p className="mt-4 text-center text-xs text-zinc-500">
+                      Pagamento seguro processado pela Easypay
                     </p>
                   </div>
                 </div>
@@ -1556,6 +1796,14 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           </div>
         </div>
       )}
+
+      {/* Easypay Checkout Modal */}
+      <EasypayCheckoutModal
+        open={showEasypayCheckout}
+        onClose={() => setShowEasypayCheckout(false)}
+        orderData={easypayOrderData}
+        onPaymentSuccess={handlePaymentSuccess}
+      />
 
       <BookingModal
         open={bookingOpen}
