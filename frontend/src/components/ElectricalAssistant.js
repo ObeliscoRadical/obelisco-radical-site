@@ -1,13 +1,15 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, X, Zap, ChevronDown } from "lucide-react";
 
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
+
 export default function ElectricalAssistant() {
   const [isOpen, setIsOpen] = useState(false);
 
   const [messages, setMessages] = useState([
     {
       id: "1",
-      text: "Ola! Sou o assistente da Obelisco Radical. Descreva seu problema eletrico e vou ajudar a encontrar a solucao ideal.",
+      text: "Olá! Sou o assistente da Obelisco Radical. Descreva seu problema elétrico e vou ajudar a encontrar a solução ideal.",
       isUser: false,
       timestamp: new Date(),
     },
@@ -29,10 +31,6 @@ export default function ElectricalAssistant() {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
-    const config = window.electricalAssistantConfig;
-    const supabaseUrl = config?.supabaseUrl;
-    const supabaseKey = config?.supabaseKey;
-
     const messageToSend = inputValue;
 
     const userMessage = {
@@ -47,31 +45,25 @@ export default function ElectricalAssistant() {
     setIsLoading(true);
 
     try {
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error("Configuracao do Supabase nao encontrada.");
-      }
+      const response = await fetch(`${BACKEND_URL}/api/electrical-assistant`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: messageToSend,
+        }),
+      });
 
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/electrical-assistant`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${supabaseKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            message: messageToSend,
-          }),
-        }
-      );
+      if (!response.ok) {
+        throw new Error("Erro na resposta do servidor");
+      }
 
       const data = await response.json();
 
       const botMessage = {
         id: (Date.now() + 1).toString(),
-        text:
-          data?.response ||
-          "Recebi sua mensagem, mas nao consegui gerar uma resposta agora.",
+        text: data?.response || "Recebi sua mensagem, mas não consegui gerar uma resposta agora.",
         isUser: false,
         timestamp: new Date(),
         serviceRecommendation: data?.recommendation,
@@ -83,7 +75,7 @@ export default function ElectricalAssistant() {
 
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        text: "Desculpe, ocorreu um erro. Por favor, tente novamente.",
+        text: "Desculpe, ocorreu um erro. Por favor, tente novamente ou contacte-nos pelo WhatsApp: +351 911 132 401",
         isUser: false,
         timestamp: new Date(),
       };
@@ -115,11 +107,11 @@ export default function ElectricalAssistant() {
   const getUrgencyLabel = (urgency) => {
     switch (urgency) {
       case "high":
-        return "Alta Urgencia";
+        return "Alta Urgência";
       case "medium":
-        return "Urgencia Moderada";
+        return "Urgência Moderada";
       default:
-        return "Urgencia Baixa";
+        return "Urgência Baixa";
     }
   };
 
@@ -134,7 +126,7 @@ export default function ElectricalAssistant() {
           <div className="rounded-2xl bg-yellow-400 px-4 py-3 font-semibold text-zinc-950 shadow-2xl">
             <span className="block whitespace-nowrap">Conte-me aqui</span>
             <span className="block whitespace-nowrap text-sm">
-              seu problema eletrico
+              seu problema elétrico
             </span>
           </div>
           <ChevronDown className="h-5 w-5 text-yellow-400 animate-bounce" />
@@ -153,7 +145,7 @@ export default function ElectricalAssistant() {
                 <Zap size={24} />
               </div>
               <div>
-                <h3 className="font-bold text-lg">Assistente Eletrico</h3>
+                <h3 className="font-bold text-lg">Assistente Elétrico</h3>
                 <p className="text-xs text-zinc-900">Obelisco Radical</p>
               </div>
             </div>
@@ -182,7 +174,7 @@ export default function ElectricalAssistant() {
                       : "bg-zinc-800 text-zinc-100 rounded-2xl rounded-bl-sm border border-zinc-700"
                   } px-4 py-3`}
                 >
-                  <p className="text-sm leading-relaxed">{message.text}</p>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
 
                   {message.serviceRecommendation && (
                     <div className="mt-3 pt-3 border-t border-zinc-600">

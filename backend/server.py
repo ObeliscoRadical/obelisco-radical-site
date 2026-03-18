@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 import httpx
 
 ROOT_DIR = Path(__file__).parent
@@ -23,6 +24,9 @@ db = client[os.environ['DB_NAME']]
 EASYPAY_ACCOUNT_ID = os.environ.get('EASYPAY_ACCOUNT_ID', '2b0f63e2-9fb5-4e52-aca0-b4bf0339bbe6')
 EASYPAY_API_KEY = os.environ.get('EASYPAY_API_KEY', 'eae4aa59-8e5b-4ec2-887d-b02768481a92')
 EASYPAY_BASE_URL = os.environ.get('EASYPAY_BASE_URL', 'https://api.test.easypay.pt/2.0')
+
+# Emergent LLM Key for AI Assistant
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -344,6 +348,111 @@ async def list_payments(limit: int = 50):
     
     payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"payments": payments, "count": len(payments)}
+
+# ==================== ELECTRICAL ASSISTANT AI ====================
+
+class ChatMessage(BaseModel):
+    message: str
+
+ELECTRICAL_ASSISTANT_SYSTEM = """Voce e o assistente virtual da Obelisco Radical Eletricidade, uma empresa de servicos eletricos na Grande Lisboa, Portugal.
+
+Seu papel e:
+1. Ouvir os problemas eletricos dos clientes
+2. Fazer perguntas de esclarecimento quando necessario
+3. Identificar o tipo de servico necessario
+4. Recomendar a solucao adequada
+5. Informar sobre urgencia e tempo estimado
+
+Servicos disponiveis:
+- Instalacoes Eletricas (desde EUR50) - instalacoes completas para casas, apartamentos e empresas
+- Iluminacao Interior e Exterior (desde EUR27.50) - projetos LED, iluminacao decorativa
+- Manutencao e Reparacao (desde EUR37) - diagnostico e reparacao de falhas
+- Quadros Eletricos (desde EUR150) - instalacao e substituicao de quadros
+- Cablagem Estruturada (desde EUR95) - infraestrutura para energia e dados
+- Seguranca e Inspecao (desde EUR110) - avaliacao tecnica e melhorias
+
+Taxa de deslocacao: EUR35
+
+Sempre seja:
+- Profissional e amigavel
+- Claro e objetivo
+- Preocupado com a seguranca do cliente
+- Util em identificar a urgencia do problema
+
+Se o problema parecer urgente (cheiro de queimado, faiscas, falta total de energia), alerte o cliente para desligar o disjuntor principal e contactar imediatamente pelo WhatsApp: +351 911 132 401
+
+Responda sempre em portugues de Portugal."""
+
+@api_router.post("/electrical-assistant")
+async def electrical_assistant(request: ChatMessage):
+    """AI-powered electrical assistant chat endpoint"""
+    
+    try:
+        if not EMERGENT_LLM_KEY:
+            raise HTTPException(status_code=500, detail="LLM API key not configured")
+        
+        # Create chat instance
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"electrical-assistant-{uuid.uuid4().hex[:8]}",
+            system_message=ELECTRICAL_ASSISTANT_SYSTEM
+        ).with_model("openai", "gpt-4o-mini")
+        
+        # Create user message
+        user_message = UserMessage(text=request.message)
+        
+        # Get AI response
+        response_text = await chat.send_message(user_message)
+        
+        # Determine urgency and service recommendation based on keywords
+        urgency = "low"
+        service = None
+        estimated_time = None
+        
+        message_lower = request.message.lower()
+        
+        # Check for urgency indicators
+        if any(word in message_lower for word in ["faisca", "cheiro", "queimado", "fumaca", "fogo", "emergencia", "urgente"]):
+            urgency = "high"
+        elif any(word in message_lower for word in ["nao funciona", "parou", "sem luz", "apagou"]):
+            urgency = "medium"
+        
+        # Identify service type
+        if any(word in message_lower for word in ["instalar", "instalacao", "nova", "novo"]):
+            service = "Instalacoes Eletricas"
+            estimated_time = "2-4 horas"
+        elif any(word in message_lower for word in ["luz", "lampada", "iluminacao", "led"]):
+            service = "Iluminacao Interior e Exterior"
+            estimated_time = "1-2 horas"
+        elif any(word in message_lower for word in ["quadro", "disjuntor", "fusivel"]):
+            service = "Quadros Eletricos"
+            estimated_time = "2-3 horas"
+        elif any(word in message_lower for word in ["cabo", "fio", "tomada", "rede"]):
+            service = "Cablagem Estruturada"
+            estimated_time = "2-4 horas"
+        elif any(word in message_lower for word in ["inspecao", "vistoria", "seguranca", "certificado"]):
+            service = "Seguranca e Inspecao"
+            estimated_time = "1-2 horas"
+        else:
+            service = "Manutencao e Reparacao"
+            estimated_time = "1-3 horas"
+        
+        # Build response
+        result = {
+            "response": response_text,
+            "recommendation": {
+                "service": service,
+                "description": f"Com base no seu problema, recomendamos o servico de {service}.",
+                "urgency": urgency,
+                "estimatedTime": estimated_time
+            }
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Electrical assistant error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
 
 # Include the router in the main app
 app.include_router(api_router)
