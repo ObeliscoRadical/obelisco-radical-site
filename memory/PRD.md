@@ -1,4 +1,4 @@
-# PRD - Obelisco Radical Eletricidade - Site com Pagamentos Online
+# PRD - Obelisco Radical Eletricidade - Site com Pagamentos Online e Chat IA
 
 ## Problema Original
 O usuario possui um site de servicos eletricos (Obelisco Radical) e queria:
