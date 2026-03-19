@@ -166,12 +166,21 @@ async def create_checkout_session(request: CheckoutRequest):
             )
             
             logger.info(f"Easypay response status: {response.status_code}")
+            logger.info(f"Easypay response body: {response.text[:500]}")
             
             if response.status_code not in [200, 201]:
                 logger.error(f"Easypay API error: {response.status_code} - {response.text}")
                 raise HTTPException(
                     status_code=400,
                     detail=f"Failed to create checkout session: {response.text}"
+                )
+            
+            response_text = response.text
+            if not response_text or response_text.strip() == "":
+                logger.error("Easypay returned empty response")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Payment gateway returned empty response"
                 )
             
             easypay_response = response.json()
