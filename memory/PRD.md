@@ -8,7 +8,7 @@ O usuario possui um site de servicos eletricos (Obelisco Radical) e queria:
 ## Arquitetura
 
 ### Site Principal
-- **URL**: https://form-payments.preview.emergentagent.com
+- **URL**: https://obelisco-payments.preview.emergentagent.com
 - **Stack**: React + Tailwind CSS + Framer Motion + Easypay SDK
 - **Funcionalidades**:
   - Landing page com secoes: Hero, Servicos, Vantagens, FAQ, Contacto
