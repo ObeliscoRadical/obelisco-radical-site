@@ -20,10 +20,10 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Easypay Configuration (TEST credentials)
-EASYPAY_ACCOUNT_ID = os.environ.get('EASYPAY_ACCOUNT_ID', '2b0f63e2-9fb5-4e52-aca0-b4bf0339bbe6')
-EASYPAY_API_KEY = os.environ.get('EASYPAY_API_KEY', 'eae4aa59-8e5b-4ec2-887d-b02768481a92')
-EASYPAY_BASE_URL = os.environ.get('EASYPAY_BASE_URL', 'https://api.test.easypay.pt/2.0')
+# Easypay Configuration (PRODUCTION credentials)
+EASYPAY_ACCOUNT_ID = os.environ.get('EASYPAY_ACCOUNT_ID')
+EASYPAY_API_KEY = os.environ.get('EASYPAY_API_KEY')
+EASYPAY_BASE_URL = os.environ.get('EASYPAY_BASE_URL', 'https://api.easypay.pt/2.0')
 
 # Emergent LLM Key for AI Assistant
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
