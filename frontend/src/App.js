@@ -532,8 +532,15 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
 
         console.log("Checkout session created:", responseData);
 
+        // Build the manifest object for Easypay SDK
+        const manifest = {
+          id: responseData.id,
+          session: responseData.session,
+          config: responseData.config
+        };
+
         // Initialize Easypay checkout form
-        const instance = startCheckout(responseData.session, {
+        const instance = startCheckout(manifest, {
           display: "inline",
           id: "easypay-checkout-container",
           language: "pt",
@@ -541,7 +548,7 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
           onSuccess: (checkoutInfo) => {
             console.log("Payment successful:", checkoutInfo);
             onPaymentSuccess({
-              paymentId: checkoutInfo?.id || responseData.payment_id,
+              paymentId: checkoutInfo?.payment?.id || responseData.payment_id,
               status: "success",
               method: checkoutInfo?.method,
               amount: orderData.value,
@@ -550,7 +557,11 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
 
           onError: (err) => {
             console.error("Checkout error:", err);
-            setError(`Erro no pagamento: ${err?.message || "Tente novamente"}`);
+            if (err?.code === "generic-error") {
+              setError("O sistema de pagamento está temporariamente indisponível. Por favor, contacte-nos via WhatsApp para finalizar o seu pedido.");
+            } else {
+              setError(`Erro no pagamento: ${err?.message || "Tente novamente"}`);
+            }
           },
 
           onPaymentError: (err) => {
@@ -662,16 +673,27 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
 
           {error && (
             <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-              <p className="text-red-300">{error}</p>
+              <p className="text-red-300 font-semibold">Erro no pagamento</p>
               <p className="mt-2 text-sm text-zinc-400">
                 O sistema de pagamento não está disponível de momento. Por favor, entre em contacto via WhatsApp para finalizar o seu pedido.
               </p>
-              <button
-                onClick={onClose}
-                className="mt-3 rounded-xl bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-600"
-              >
-                Fechar
-              </button>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                <a
+                  href={`https://wa.me/351911132401?text=Ola,%20gostaria%20de%20finalizar%20o%20meu%20pedido%20no%20valor%20de%20EUR${orderData?.value?.toFixed(2)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-400"
+                >
+                  <MessageCircle className="h-4 w-4" />
+                  Contactar via WhatsApp
+                </a>
+                <button
+                  onClick={onClose}
+                  className="rounded-xl bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-600"
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
           )}
 
