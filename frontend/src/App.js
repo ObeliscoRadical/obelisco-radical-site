@@ -524,16 +524,16 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
           }),
         });
 
+        const responseData = await response.json();
+        
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to create checkout session");
+          throw new Error(responseData.detail || "Failed to create checkout session");
         }
 
-        const sessionData = await response.json();
-        console.log("Checkout session created:", sessionData);
+        console.log("Checkout session created:", responseData);
 
         // Initialize Easypay checkout form
-        const instance = startCheckout(sessionData.session, {
+        const instance = startCheckout(responseData.session, {
           display: "inline",
           id: "easypay-checkout-container",
           language: "pt",
@@ -541,7 +541,7 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
           onSuccess: (checkoutInfo) => {
             console.log("Payment successful:", checkoutInfo);
             onPaymentSuccess({
-              paymentId: checkoutInfo?.id || sessionData.payment_id,
+              paymentId: checkoutInfo?.id || responseData.payment_id,
               status: "success",
               method: checkoutInfo?.method,
               amount: orderData.value,
@@ -580,8 +580,9 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
         setCheckoutInstance(instance);
       } catch (err) {
         console.error("Checkout initialization failed:", err);
-        setError(err.message || "Erro ao iniciar pagamento");
-        setInitialized(false);
+        // Show user-friendly error message
+        setError("O sistema de pagamento está temporariamente indisponível. Por favor contacte-nos via WhatsApp para finalizar o seu pedido.");
+        // Don't reset initialized to prevent infinite loops
       } finally {
         setLoading(false);
       }
@@ -662,23 +663,28 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
           {error && (
             <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center">
               <p className="text-red-300">{error}</p>
+              <p className="mt-2 text-sm text-zinc-400">
+                O sistema de pagamento não está disponível de momento. Por favor, entre em contacto via WhatsApp para finalizar o seu pedido.
+              </p>
               <button
-                onClick={initializeCheckout}
-                className="mt-3 rounded-xl bg-red-500 px-4 py-2 text-sm font-semibold text-white"
+                onClick={onClose}
+                className="mt-3 rounded-xl bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-600"
               >
-                Tentar Novamente
+                Fechar
               </button>
             </div>
           )}
 
           {/* Easypay Checkout Container */}
-          <div
-            id="easypay-checkout-container"
-            className="min-h-[400px] rounded-2xl"
-            style={{
-              display: loading ? "none" : "block",
-            }}
-          />
+          {!error && (
+            <div
+              id="easypay-checkout-container"
+              className="min-h-[400px] rounded-2xl"
+              style={{
+                display: loading ? "none" : "block",
+              }}
+            />
+          )}
 
           <p className="mt-4 text-center text-xs text-zinc-500">
             Pagamento processado de forma segura pela Easypay. Os seus dados estao protegidos.
