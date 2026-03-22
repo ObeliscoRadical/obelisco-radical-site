@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,9 +9,13 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import httpx
+from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request as GoogleRequest
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -27,6 +32,12 @@ EASYPAY_BASE_URL = os.environ.get('EASYPAY_BASE_URL', 'https://api.easypay.pt/2.
 
 # Emergent LLM Key for AI Assistant
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+
+# Google Calendar Configuration
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
+GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI')
+GOOGLE_SCOPES = ['https://www.googleapis.com/auth/calendar']
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -463,6 +474,294 @@ async def electrical_assistant(request: ChatMessage):
     except Exception as e:
         logger.error(f"Electrical assistant error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erro ao processar mensagem: {str(e)}")
+
+# ============================================
+# Google Calendar Integration
+# ============================================
+
+def get_google_flow():
+    """Create Google OAuth flow"""
+    return Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GOOGLE_CLIENT_ID,
+                "client_secret": GOOGLE_CLIENT_SECRET,
+                "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+                "token_uri": "https://oauth2.googleapis.com/token"
+            }
+        },
+        scopes=GOOGLE_SCOPES,
+        redirect_uri=GOOGLE_REDIRECT_URI
+    )
+
+@api_router.get("/oauth/calendar/login")
+async def google_calendar_login():
+    """Start Google Calendar OAuth flow"""
+    try:
+        flow = get_google_flow()
+        authorization_url, state = flow.authorization_url(
+            access_type='offline',
+            prompt='consent',
+            include_granted_scopes='true'
+        )
+        
+        # Store state for verification
+        await db.oauth_states.insert_one({
+            "state": state,
+            "created_at": datetime.now(timezone.utc)
+        })
+        
+        return {"authorization_url": authorization_url, "state": state}
+    except Exception as e:
+        logger.error(f"Google OAuth login error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/oauth/calendar/callback")
+async def google_calendar_callback(code: str, state: str = None):
+    """Handle Google Calendar OAuth callback"""
+    try:
+        # Exchange code for tokens using direct request (avoids scope mismatch issues)
+        async with httpx.AsyncClient() as client_http:
+            token_response = await client_http.post(
+                'https://oauth2.googleapis.com/token',
+                data={
+                    'code': code,
+                    'client_id': GOOGLE_CLIENT_ID,
+                    'client_secret': GOOGLE_CLIENT_SECRET,
+                    'redirect_uri': GOOGLE_REDIRECT_URI,
+                    'grant_type': 'authorization_code'
+                }
+            )
+            tokens = token_response.json()
+        
+        if 'error' in tokens:
+            raise HTTPException(status_code=400, detail=tokens.get('error_description', 'Token exchange failed'))
+        
+        # Get user info
+        async with httpx.AsyncClient() as client_http:
+            user_response = await client_http.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {tokens["access_token"]}'}
+            )
+            user_info = user_response.json()
+        
+        # Store tokens in database
+        await db.google_calendar_tokens.update_one(
+            {"user_id": "admin"},  # Single admin user
+            {
+                "$set": {
+                    "tokens": tokens,
+                    "email": user_info.get('email'),
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            },
+            upsert=True
+        )
+        
+        logger.info(f"Google Calendar connected for {user_info.get('email')}")
+        
+        # Redirect to success page
+        return RedirectResponse(url=f"https://obelisco-payments.preview.emergentagent.com?calendar_connected=true")
+        
+    except Exception as e:
+        logger.error(f"Google OAuth callback error: {str(e)}")
+        return RedirectResponse(url=f"https://obelisco-payments.preview.emergentagent.com?calendar_error={str(e)}")
+
+async def get_calendar_credentials():
+    """Get and refresh Google Calendar credentials"""
+    token_doc = await db.google_calendar_tokens.find_one({"user_id": "admin"})
+    
+    if not token_doc or 'tokens' not in token_doc:
+        return None
+    
+    tokens = token_doc['tokens']
+    
+    creds = Credentials(
+        token=tokens.get('access_token'),
+        refresh_token=tokens.get('refresh_token'),
+        token_uri='https://oauth2.googleapis.com/token',
+        client_id=GOOGLE_CLIENT_ID,
+        client_secret=GOOGLE_CLIENT_SECRET
+    )
+    
+    # Refresh if expired
+    if creds.expired and creds.refresh_token:
+        creds.refresh(GoogleRequest())
+        # Update stored tokens
+        await db.google_calendar_tokens.update_one(
+            {"user_id": "admin"},
+            {"$set": {"tokens.access_token": creds.token}}
+        )
+    
+    return creds
+
+@api_router.get("/calendar/status")
+async def get_calendar_status():
+    """Check if Google Calendar is connected"""
+    token_doc = await db.google_calendar_tokens.find_one({"user_id": "admin"})
+    
+    if token_doc and 'tokens' in token_doc:
+        return {
+            "connected": True,
+            "email": token_doc.get('email'),
+            "updated_at": token_doc.get('updated_at')
+        }
+    
+    return {"connected": False}
+
+@api_router.get("/calendar/availability")
+async def check_calendar_availability(date: str, time: str):
+    """Check if a specific date/time slot is available"""
+    try:
+        creds = await get_calendar_credentials()
+        
+        if not creds:
+            # If calendar not connected, assume available
+            return {"available": True, "reason": "Calendar not connected"}
+        
+        service = build('calendar', 'v3', credentials=creds)
+        
+        # Parse date and time
+        slot_start = datetime.fromisoformat(f"{date}T{time}:00")
+        slot_end = slot_start + timedelta(hours=2)  # Assume 2-hour service
+        
+        # Set timezone to Lisbon
+        time_min = slot_start.isoformat() + '+00:00'
+        time_max = slot_end.isoformat() + '+00:00'
+        
+        # Check for existing events
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        
+        events = events_result.get('items', [])
+        
+        if events:
+            return {
+                "available": False,
+                "reason": "Já existe um agendamento para este horário",
+                "existing_event": events[0].get('summary', 'Evento')
+            }
+        
+        return {"available": True}
+        
+    except Exception as e:
+        logger.error(f"Calendar availability check error: {str(e)}")
+        # If error, assume available to not block bookings
+        return {"available": True, "error": str(e)}
+
+class CalendarEventRequest(BaseModel):
+    title: str
+    date: str
+    time: str
+    duration_hours: int = 2
+    description: str = ""
+    customer_name: str = ""
+    customer_phone: str = ""
+    customer_address: str = ""
+
+@api_router.post("/calendar/create-event")
+async def create_calendar_event(event_data: CalendarEventRequest):
+    """Create a new calendar event for a booking"""
+    try:
+        creds = await get_calendar_credentials()
+        
+        if not creds:
+            return {"success": False, "reason": "Calendar not connected"}
+        
+        service = build('calendar', 'v3', credentials=creds)
+        
+        # Parse date and time
+        event_start = datetime.fromisoformat(f"{event_data.date}T{event_data.time}:00")
+        event_end = event_start + timedelta(hours=event_data.duration_hours)
+        
+        # Create event description
+        full_description = f"""Cliente: {event_data.customer_name}
+Telefone: {event_data.customer_phone}
+Morada: {event_data.customer_address}
+
+{event_data.description}"""
+        
+        event = {
+            'summary': f"🔧 {event_data.title} - {event_data.customer_name}",
+            'description': full_description,
+            'start': {
+                'dateTime': event_start.isoformat(),
+                'timeZone': 'Europe/Lisbon',
+            },
+            'end': {
+                'dateTime': event_end.isoformat(),
+                'timeZone': 'Europe/Lisbon',
+            },
+            'reminders': {
+                'useDefault': False,
+                'overrides': [
+                    {'method': 'popup', 'minutes': 60},
+                    {'method': 'popup', 'minutes': 30},
+                ],
+            },
+        }
+        
+        created_event = service.events().insert(calendarId='primary', body=event).execute()
+        
+        logger.info(f"Calendar event created: {created_event.get('id')}")
+        
+        return {
+            "success": True,
+            "event_id": created_event.get('id'),
+            "event_link": created_event.get('htmlLink')
+        }
+        
+    except Exception as e:
+        logger.error(f"Calendar event creation error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+@api_router.get("/calendar/booked-slots")
+async def get_booked_slots(start_date: str, end_date: str):
+    """Get all booked time slots in a date range"""
+    try:
+        creds = await get_calendar_credentials()
+        
+        if not creds:
+            return {"slots": [], "connected": False}
+        
+        service = build('calendar', 'v3', credentials=creds)
+        
+        time_min = f"{start_date}T00:00:00+00:00"
+        time_max = f"{end_date}T23:59:59+00:00"
+        
+        events_result = service.events().list(
+            calendarId='primary',
+            timeMin=time_min,
+            timeMax=time_max,
+            singleEvents=True,
+            orderBy='startTime'
+        ).execute()
+        
+        events = events_result.get('items', [])
+        
+        booked_slots = []
+        for event in events:
+            start = event.get('start', {})
+            end = event.get('end', {})
+            
+            if 'dateTime' in start:
+                booked_slots.append({
+                    "date": start['dateTime'][:10],
+                    "start_time": start['dateTime'][11:16],
+                    "end_time": end.get('dateTime', '')[11:16] if 'dateTime' in end else None,
+                    "title": event.get('summary', 'Ocupado')
+                })
+        
+        return {"slots": booked_slots, "connected": True}
+        
+    except Exception as e:
+        logger.error(f"Get booked slots error: {str(e)}")
+        return {"slots": [], "error": str(e)}
 
 # Include the router in the main app
 app.include_router(api_router)
