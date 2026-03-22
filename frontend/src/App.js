@@ -473,19 +473,20 @@ function BookingModal({
 }
 
 // Easypay Checkout Component
-function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
+function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
+  const [selectedMethod, setSelectedMethod] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [checkoutInstance, setCheckoutInstance] = useState(null);
-  const [initialized, setInitialized] = useState(false);
-  const [redirectUrl, setRedirectUrl] = useState(null);
+  const [showEasypayForm, setShowEasypayForm] = useState(false);
+  const [mbReference, setMbReference] = useState(null);
 
   useEffect(() => {
-    // Reset when modal closes
     if (!open) {
-      setInitialized(false);
+      setSelectedMethod(null);
       setError(null);
-      setRedirectUrl(null);
+      setShowEasypayForm(false);
+      setMbReference(null);
       if (checkoutInstance) {
         try {
           checkoutInstance.unmount();
@@ -497,223 +498,297 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess, onWh
     }
   }, [open, checkoutInstance]);
 
-  useEffect(() => {
-    if (!open || !orderData || orderData.value <= 0 || initialized) return;
+  const handleMethodSelect = async (method) => {
+    setSelectedMethod(method);
+    setError(null);
 
-    const initializeCheckout = async () => {
-      setLoading(true);
-      setError(null);
-      setInitialized(true);
+    if (method === 'whatsapp') {
+      // WhatsApp payment - redirect to WhatsApp
+      onWhatsAppFallback();
+      return;
+    }
 
-      try {
-        // Create checkout session on backend
-        const response = await fetch(`${BACKEND_URL}/api/checkout/create-session`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+    if (method === 'transfer') {
+      // Show bank transfer details
+      return;
+    }
+
+    // For card, mbway, mb - try Easypay
+    setLoading(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/checkout/create-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          value: orderData.value,
+          currency: "EUR",
+          items: orderData.items,
+          customer: {
+            name: orderData.customer.name,
+            email: orderData.customer.email,
+            phone: orderData.customer.phone,
           },
-          body: JSON.stringify({
-            value: orderData.value,
-            currency: "EUR",
-            items: orderData.items,
-            customer: {
-              name: orderData.customer.name,
-              email: orderData.customer.email,
-              phone: orderData.customer.phone,
-            },
-            payment_methods: ["cc", "mbw", "mb"],
-            order_id: orderData.orderId,
-          }),
-        });
+          payment_methods: method === 'card' ? ['cc'] : method === 'mbway' ? ['mbw'] : ['mb'],
+          order_id: orderData.orderId,
+        }),
+      });
 
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(responseData.detail || "Failed to create checkout session");
-        }
-
-        console.log("Checkout session created:", responseData);
-        
-        // Save redirect URL for fallback
-        setRedirectUrl(responseData.redirect_url);
-
-        // Build the manifest object for Easypay SDK
-        const manifest = {
-          id: responseData.id,
-          session: responseData.session,
-          config: responseData.config
-        };
-
-        // Initialize Easypay checkout form
-        const instance = startCheckout(manifest, {
-          display: "inline",
-          id: "easypay-checkout-container",
-          language: "pt",
-
-          onSuccess: (checkoutInfo) => {
-            console.log("Payment successful:", checkoutInfo);
-            onPaymentSuccess({
-              paymentId: checkoutInfo?.payment?.id || responseData.payment_id,
-              status: "success",
-              method: checkoutInfo?.method,
-              amount: orderData.value,
-            });
-          },
-
-          onError: (err) => {
-            console.error("Checkout error:", err);
-            // Show user-friendly error message for all errors
-            setError("O sistema de pagamento está temporariamente indisponível. Por favor, contacte-nos via WhatsApp para finalizar o seu pedido.");
-          },
-
-          onPaymentError: (err) => {
-            console.warn("Recoverable payment error:", err);
-            if (err?.code === "checkout-expired") {
-              setError("Sessao expirada. Por favor, feche e tente novamente.");
-            }
-          },
-
-          onClose: () => {
-            console.log("Checkout closed by user");
-          },
-
-          // Customization
-          logoUrl: logoUrl,
-          accentColor: "#FACC15",
-          backgroundColor: "#18181B",
-          buttonBackgroundColor: "#FACC15",
-          buttonBorderRadius: 16,
-          inputBorderRadius: 16,
-          inputBorderColor: "#3F3F46",
-          inputBackgroundColor: "#27272A",
-          inputColor: "#FFFFFF",
-          fontFamily: "Inter, sans-serif",
-        });
-
-        setCheckoutInstance(instance);
-      } catch (err) {
-        console.error("Checkout initialization failed:", err);
-        // Show user-friendly error message
-        setError("O sistema de pagamento está temporariamente indisponível. Por favor contacte-nos via WhatsApp para finalizar o seu pedido.");
-        // Don't reset initialized to prevent infinite loops
-      } finally {
-        setLoading(false);
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(responseData.detail || "Erro ao criar sessão de pagamento");
       }
-    };
 
-    initializeCheckout();
-  }, [open, orderData, initialized, onPaymentSuccess]);
+      // For Multibanco, we might get reference directly
+      if (method === 'mb' && responseData.mb_reference) {
+        setMbReference(responseData.mb_reference);
+        setLoading(false);
+        return;
+      }
+
+      // Try to initialize Easypay SDK
+      const manifest = {
+        id: responseData.id,
+        session: responseData.session,
+        config: responseData.config
+      };
+
+      setShowEasypayForm(true);
+
+      const instance = startCheckout(manifest, {
+        display: "inline",
+        id: "easypay-checkout-container",
+        language: "pt",
+        onSuccess: (checkoutInfo) => {
+          onPaymentSuccess({
+            paymentId: checkoutInfo?.payment?.id || responseData.payment_id,
+            status: "success",
+            method: method,
+            amount: orderData.value,
+          });
+        },
+        onError: (err) => {
+          console.error("Checkout error:", err);
+          setError("Pagamento online temporariamente indisponível. Por favor, use outra opção.");
+          setShowEasypayForm(false);
+        },
+        logoUrl: logoUrl,
+        accentColor: "#FACC15",
+        backgroundColor: "#18181B",
+        buttonBackgroundColor: "#FACC15",
+        buttonBorderRadius: 16,
+      });
+
+      setCheckoutInstance(instance);
+      setLoading(false);
+
+    } catch (err) {
+      console.error("Payment error:", err);
+      setError("Erro ao processar pagamento. Por favor, tente outra opção.");
+      setLoading(false);
+    }
+  };
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-      <div className="max-h-[95vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-950 shadow-2xl">
-        <div className="sticky top-0 flex items-center justify-between border-b border-zinc-800 bg-zinc-950/95 px-6 py-5 backdrop-blur">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-400">
-              <CreditCard className="h-5 w-5" />
-            </div>
-            <div>
-              <h3 className="text-xl font-black uppercase tracking-wide text-white">
-                Pagamento Seguro
-              </h3>
-              <p className="text-sm text-zinc-400">
-                Powered by Easypay
-              </p>
-            </div>
-          </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-900 p-6"
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-4 top-4 rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+        >
+          <X className="h-5 w-5" />
+        </button>
 
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-zinc-800 p-2 text-zinc-400 transition hover:bg-zinc-900 hover:text-white"
-          >
-            <X className="h-5 w-5" />
-          </button>
+        <div className="mb-6 flex items-center gap-3">
+          <CreditCard className="h-6 w-6 text-yellow-400" />
+          <div>
+            <h2 className="text-xl font-bold text-white">Forma de Pagamento</h2>
+            <p className="text-sm text-zinc-400">Escolha como pretende pagar</p>
+          </div>
         </div>
 
-        <div className="p-6">
-          {/* Order Summary */}
-          <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-4">
-            <h4 className="mb-3 font-semibold text-white">Resumo do Pedido</h4>
-            {orderData?.items?.map((item, idx) => (
-              <div key={idx} className="flex justify-between text-sm text-zinc-400">
-                <span>{item.description} x{item.quantity}</span>
-                <span>EUR{(item.value * item.quantity).toFixed(2)}</span>
-              </div>
-            ))}
-            <div className="mt-3 flex justify-between border-t border-zinc-800 pt-3">
-              <span className="font-semibold text-white">Total</span>
-              <span className="text-xl font-bold text-yellow-400">
-                EUR{orderData?.value?.toFixed(2)}
-              </span>
-            </div>
+        {/* Order Summary */}
+        <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+          <p className="text-sm text-zinc-400">Total a pagar</p>
+          <p className="text-2xl font-bold text-yellow-400">EUR{orderData?.value?.toFixed(2)}</p>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center text-sm text-red-300">
+            {error}
           </div>
+        )}
 
-          {/* Payment Methods Info */}
-          <div className="mb-6 flex justify-center gap-6">
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <CreditCard className="h-5 w-5" />
-              <span>Cartao</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <Smartphone className="h-5 w-5" />
-              <span>MB Way</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <Landmark className="h-5 w-5" />
-              <span>Multibanco</span>
-            </div>
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
+            <p className="mt-2 text-zinc-400">A processar...</p>
           </div>
+        )}
 
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="h-10 w-10 animate-spin text-yellow-400" />
-              <p className="mt-4 text-zinc-400">A iniciar pagamento seguro...</p>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-4 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-center">
-              <p className="text-red-300 font-semibold">Erro no pagamento</p>
-              <p className="mt-2 text-sm text-zinc-400">
-                O sistema de pagamento não está disponível de momento. Por favor, entre em contacto via WhatsApp para finalizar o seu pedido.
-              </p>
-              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
-                <button
-                  onClick={onWhatsAppFallback}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-400"
-                >
-                  <MessageCircle className="h-4 w-4" />
-                  Contactar via WhatsApp
-                </button>
-                <button
-                  onClick={onClose}
-                  className="rounded-xl bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-600"
-                >
-                  Fechar
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Easypay Checkout Container */}
-          {!error && (
+        {showEasypayForm && !loading && (
+          <div className="mb-4">
             <div
               id="easypay-checkout-container"
-              className="min-h-[400px] rounded-2xl"
-              style={{
-                display: loading ? "none" : "block",
-              }}
+              className="min-h-[300px] rounded-2xl"
             />
-          )}
+            <button
+              onClick={() => {
+                setShowEasypayForm(false);
+                setSelectedMethod(null);
+              }}
+              className="mt-4 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
+            >
+              ← Voltar às opções
+            </button>
+          </div>
+        )}
 
-          <p className="mt-4 text-center text-xs text-zinc-500">
-            Pagamento processado de forma segura pela Easypay. Os seus dados estao protegidos.
-          </p>
-        </div>
-      </div>
+        {mbReference && !loading && (
+          <div className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
+            <p className="font-semibold text-blue-300">Referência Multibanco</p>
+            <div className="mt-3 space-y-2 text-white">
+              <p>Entidade: <span className="font-mono font-bold">{mbReference.entity}</span></p>
+              <p>Referência: <span className="font-mono font-bold">{mbReference.reference}</span></p>
+              <p>Valor: <span className="font-bold">EUR{orderData?.value?.toFixed(2)}</span></p>
+            </div>
+            <p className="mt-3 text-xs text-zinc-400">Válido por 72 horas</p>
+            <button
+              onClick={() => {
+                setMbReference(null);
+                setSelectedMethod(null);
+              }}
+              className="mt-4 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
+            >
+              ← Voltar às opções
+            </button>
+          </div>
+        )}
+
+        {selectedMethod === 'transfer' && !loading && (
+          <div className="mb-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+            <p className="font-semibold text-yellow-300">Transferência Bancária</p>
+            <div className="mt-3 space-y-2 text-sm text-white">
+              <p>IBAN: <span className="font-mono">PT50 0000 0000 0000 0000 0000 0</span></p>
+              <p>Titular: Obelisco Radical Unipessoal Lda</p>
+              <p>Valor: <span className="font-bold">EUR{orderData?.value?.toFixed(2)}</span></p>
+            </div>
+            <p className="mt-3 text-xs text-zinc-400">
+              Após transferência, envie o comprovativo via WhatsApp
+            </p>
+            <button
+              onClick={() => setSelectedMethod(null)}
+              className="mt-4 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
+            >
+              ← Voltar às opções
+            </button>
+          </div>
+        )}
+
+        {!selectedMethod && !loading && !showEasypayForm && !mbReference && (
+          <div className="space-y-3">
+            {/* Card Payment */}
+            <button
+              onClick={() => handleMethodSelect('card')}
+              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
+                <CreditCard className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white">Cartão de Crédito/Débito</p>
+                <p className="text-sm text-zinc-400">Visa, Mastercard, American Express</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-zinc-600" />
+            </button>
+
+            {/* MB Way */}
+            <button
+              onClick={() => handleMethodSelect('mbway')}
+              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600">
+                <Phone className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white">MB Way</p>
+                <p className="text-sm text-zinc-400">Pagamento pelo telemóvel</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-zinc-600" />
+            </button>
+
+            {/* Multibanco */}
+            <button
+              onClick={() => handleMethodSelect('mb')}
+              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-800">
+                <Building2 className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white">Multibanco</p>
+                <p className="text-sm text-zinc-400">Referência para pagamento em ATM</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-zinc-600" />
+            </button>
+
+            {/* Bank Transfer */}
+            <button
+              onClick={() => handleMethodSelect('transfer')}
+              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-700">
+                <ArrowRight className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white">Transferência Bancária</p>
+                <p className="text-sm text-zinc-400">IBAN / Transferência directa</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-zinc-600" />
+            </button>
+
+            {/* WhatsApp */}
+            <button
+              onClick={() => handleMethodSelect('whatsapp')}
+              className="flex w-full items-center gap-4 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-left transition hover:border-green-400 hover:bg-green-500/20"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-600">
+                <MessageCircle className="h-6 w-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-white">Pagar via WhatsApp</p>
+                <p className="text-sm text-zinc-400">Combinar pagamento directamente</p>
+              </div>
+              <ChevronRight className="h-5 w-5 text-green-500" />
+            </button>
+          </div>
+        )}
+
+        <p className="mt-4 text-center text-xs text-zinc-500">
+          Pagamento seguro processado pela Easypay
+        </p>
+      </motion.div>
     </div>
+  );
+}
+
+// Keep old component name for compatibility
+function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
+  return (
+    <PaymentMethodModal
+      open={open}
+      onClose={onClose}
+      orderData={orderData}
+      onPaymentSuccess={onPaymentSuccess}
+      onWhatsAppFallback={onWhatsAppFallback}
+    />
   );
 }
 
