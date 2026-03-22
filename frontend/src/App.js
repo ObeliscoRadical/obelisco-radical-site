@@ -676,16 +676,27 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
           <div className="mb-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
             <p className="font-semibold text-yellow-300">Transferência Bancária</p>
             <div className="mt-3 space-y-2 text-sm text-white">
-              <p>IBAN: <span className="font-mono">PT50 0000 0000 0000 0000 0000 0</span></p>
-              <p>Titular: Obelisco Radical Unipessoal Lda</p>
-              <p>Valor: <span className="font-bold">EUR{orderData?.value?.toFixed(2)}</span></p>
+              <p>Banco: <span className="font-semibold">BPI</span></p>
+              <p>IBAN: <span className="font-mono font-bold">PT50 0010 0000 6011 8060 0017 4</span></p>
+              <p>Titular: <span className="font-semibold">Obelisco Radical Unipessoal Lda</span></p>
+              <p>Valor: <span className="font-bold text-yellow-400">EUR{orderData?.value?.toFixed(2)}</span></p>
             </div>
             <p className="mt-3 text-xs text-zinc-400">
-              Após transferência, envie o comprovativo via WhatsApp
+              Após transferência, envie o comprovativo via WhatsApp para confirmar o pagamento
             </p>
+            <div className="mt-4 flex gap-2">
+              <a
+                href={`https://wa.me/351911132401?text=Ola,%20acabei%20de%20fazer%20transferencia%20no%20valor%20de%20EUR${orderData?.value?.toFixed(2)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 rounded-xl bg-green-500 py-2 text-center text-sm font-semibold text-white hover:bg-green-400"
+              >
+                Enviar comprovativo via WhatsApp
+              </a>
+            </div>
             <button
               onClick={() => setSelectedMethod(null)}
-              className="mt-4 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
+              className="mt-3 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
             >
               ← Voltar às opções
             </button>
