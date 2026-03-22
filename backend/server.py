@@ -212,7 +212,8 @@ async def create_checkout_session(request: CheckoutRequest):
             "session": easypay_response.get("session"),
             "config": easypay_response.get("config"),
             "manifest": easypay_response.get("session"),  # For SDK compatibility
-            "payment_id": payment_record.id
+            "payment_id": payment_record.id,
+            "redirect_url": f"https://pay.easypay.pt/checkout?manifest={easypay_response.get('session')}"
         }
         
     except httpx.RequestError as e:

@@ -478,12 +478,14 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
   const [error, setError] = useState(null);
   const [checkoutInstance, setCheckoutInstance] = useState(null);
   const [initialized, setInitialized] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState(null);
 
   useEffect(() => {
     // Reset when modal closes
     if (!open) {
       setInitialized(false);
       setError(null);
+      setRedirectUrl(null);
       if (checkoutInstance) {
         try {
           checkoutInstance.unmount();
@@ -531,6 +533,9 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
         }
 
         console.log("Checkout session created:", responseData);
+        
+        // Save redirect URL for fallback
+        setRedirectUrl(responseData.redirect_url);
 
         // Build the manifest object for Easypay SDK
         const manifest = {
@@ -557,11 +562,8 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
 
           onError: (err) => {
             console.error("Checkout error:", err);
-            if (err?.code === "generic-error") {
-              setError("O sistema de pagamento está temporariamente indisponível. Por favor, contacte-nos via WhatsApp para finalizar o seu pedido.");
-            } else {
-              setError(`Erro no pagamento: ${err?.message || "Tente novamente"}`);
-            }
+            // Show user-friendly error message for all errors
+            setError("O sistema de pagamento está temporariamente indisponível. Por favor, contacte-nos via WhatsApp para finalizar o seu pedido.");
           },
 
           onPaymentError: (err) => {
