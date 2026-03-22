@@ -751,6 +751,8 @@ export default function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [calendarConnected, setCalendarConnected] = useState(false);
+  const [bookedSlots, setBookedSlots] = useState([]);
+  const [checkingAvailability, setCheckingAvailability] = useState(false);
 
   // Handle OAuth callback on page load
   useEffect(() => {
@@ -799,6 +801,60 @@ export default function App() {
       .then(data => setCalendarConnected(data.connected))
       .catch(err => console.log('Calendar status check failed'));
   }, []);
+
+  // Fetch booked slots when date changes
+  useEffect(() => {
+    if (selectedDate && calendarConnected) {
+      setCheckingAvailability(true);
+      const startDate = selectedDate;
+      const endDate = selectedDate;
+      
+      fetch(`${BACKEND_URL}/api/calendar/booked-slots?start_date=${startDate}&end_date=${endDate}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.slots) {
+            setBookedSlots(data.slots);
+          }
+          setCheckingAvailability(false);
+        })
+        .catch(err => {
+          console.log('Failed to fetch booked slots');
+          setCheckingAvailability(false);
+        });
+    }
+  }, [selectedDate, calendarConnected]);
+
+  // Check if a time slot is booked
+  const isTimeSlotBooked = (time) => {
+    if (!selectedDate || !bookedSlots.length) return false;
+    return bookedSlots.some(slot => 
+      slot.date === selectedDate && slot.start_time === time
+    );
+  };
+
+  // Create calendar event after order
+  const createCalendarEvent = async (orderDetails) => {
+    if (!calendarConnected) return;
+    
+    try {
+      await fetch(`${BACKEND_URL}/api/calendar/create-event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${serviceTypes.find(s => s.value === serviceType)?.label || 'Serviço'} - Obelisco Radical`,
+          date: selectedDate,
+          time: selectedTime,
+          duration_hours: 2,
+          description: cart.map(item => `${item.title} (${item.quantity}x)`).join(', '),
+          customer_name: customerName,
+          customer_phone: customerPhone,
+          customer_address: customerAddress
+        })
+      });
+    } catch (err) {
+      console.error('Failed to create calendar event:', err);
+    }
+  };
 
   const nav = [
     { label: "Inicio", id: "hero" },
@@ -983,6 +1039,10 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           description: fullDescription,
         }),
       });
+      
+      // Create calendar event
+      await createCalendarEvent();
+      
       return true;
     } catch (error) {
       console.error("Error sending to management app:", error);
@@ -1797,17 +1857,38 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
 
                             <select
                               value={selectedTime}
-                              onChange={(e) => setSelectedTime(e.target.value)}
+                              onChange={(e) => {
+                                const time = e.target.value;
+                                if (isTimeSlotBooked(time)) {
+                                  alert('Este horário já está ocupado. Por favor, escolha outro.');
+                                  return;
+                                }
+                                setSelectedTime(time);
+                              }}
                               className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
                               data-testid="time-select"
+                              disabled={checkingAvailability}
                             >
-                              <option value="">Escolher hora *</option>
-                              {timeSlots.map((slot) => (
-                                <option key={slot} value={slot}>
-                                  {slot}
-                                </option>
-                              ))}
+                              <option value="">{checkingAvailability ? 'A verificar...' : 'Escolher hora *'}</option>
+                              {timeSlots.map((slot) => {
+                                const booked = isTimeSlotBooked(slot);
+                                return (
+                                  <option 
+                                    key={slot} 
+                                    value={slot}
+                                    disabled={booked}
+                                    style={{ color: booked ? '#ef4444' : 'inherit' }}
+                                  >
+                                    {slot} {booked ? '(Ocupado)' : ''}
+                                  </option>
+                                );
+                              })}
                             </select>
+                            {calendarConnected && (
+                              <p className="mt-1 text-xs text-green-500">
+                                ✓ Agenda conectada - horários ocupados indisponíveis
+                              </p>
+                            )}
                           </div>
                         </div>
 

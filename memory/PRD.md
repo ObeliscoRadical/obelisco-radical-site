@@ -1,119 +1,85 @@
-# PRD - Obelisco Radical Eletricidade - Site com Pagamentos Online e Chat IA
+# PRD - Obelisco Radical Eletricidade
 
 ## Problema Original
-O usuario possui um site de servicos eletricos (Obelisco Radical) e queria:
-1. Integrar o checkout do site com seu app de gestao de pedidos (tech-app-obelisco)
-2. Adicionar pagamento online real com Easypay (Cartao, MB Way, Multibanco)
-3. Assistente de IA para diagnostico de problemas eletricos
-
-## Arquitetura
-
-### Site Principal
-- **URL Preview**: https://obelisco-payments.preview.emergentagent.com
-- **URL Producao**: https://obeliscoradical.pt
-- **Stack**: React + Tailwind CSS + Framer Motion + Easypay SDK
-- **Funcionalidades**:
-  - Landing page com secoes: Hero, Servicos, Vantagens, FAQ, Contacto
-  - Carrinho de servicos com calculo de precos
-  - Checkout com dados do cliente e agendamento
-  - **Pagamento online real** via Easypay (Cartao, MB Way, Multibanco)
-  - **Assistente de IA** para diagnostico de problemas eletricos
-  - Integracao com app de gestao de pedidos
-
-### Backend
-- **Stack**: FastAPI + MongoDB
-- **Endpoints de Pagamento**:
-  - `POST /api/checkout/create-session` - Cria sessao de pagamento Easypay
-  - `GET /api/checkout/payment-methods` - Lista metodos disponiveis
-  - `POST /api/webhooks/easypay` - Recebe notificacoes de pagamento
-  - `GET /api/payments` - Lista pagamentos
-  - `GET /api/payments/{id}` - Detalhes do pagamento
-- **Endpoint IA**:
-  - `POST /api/electrical-assistant` - Chat IA para diagnostico
-
-### Gateway de Pagamento (Easypay)
-- **Ambiente**: PRODUCAO
-- **Account ID**: b7940690-d762-423d-a3d6-b530605cd9cf
-- **API Key**: 00866dd3-71cb-416e-98ad-b6db16b250e6
-- **API URL**: https://api.prod.easypay.pt/2.0
-- **Metodos Configurados**: MB Way, Multibanco
-- **Webhook URL**: https://obeliscoradical.pt/api/webhooks/easypay
-
-### App de Gestao de Pedidos
-- **URL**: https://tech-app-obelisco.emergent.host
-- **Endpoint Publico**: POST /api/orders/public
-- Recebe pedidos automaticamente apos pagamento confirmado
+Site de serviços elétricos com:
+1. Checkout integrado com app de gestão de pedidos
+2. Pagamento online real com Easypay (Cartão, MB Way, Multibanco)
+3. Assistente de IA para diagnóstico
+4. Integração com Google Calendar para evitar agendamentos duplicados
 
 ## Estado Atual (22/03/2026)
 
-### Funcional
-- [x] Site completo com todas as secoes
+### FUNCIONAL
+- [x] Site completo com todas as secções
 - [x] Carrinho de compras
-- [x] Checkout com dados do cliente e agendamento
+- [x] Checkout com dados do cliente
+- [x] **Tipo de Serviço** (Instalação, Reparação, Manutenção, Visita Técnica, Certificação)
+- [x] **Agendamento** (Segunda a Sexta, 9h-18h, com validação de fins de semana)
+- [x] **Google Calendar conectado** (obeliscoradical@gmail.com)
+- [x] **Verificação de disponibilidade** - horários ocupados mostrados como indisponíveis
+- [x] **Criação automática de eventos** no Google Calendar
 - [x] Assistente de IA funcional
-- [x] API Easypay criando sessoes de checkout com sucesso
-- [x] Webhook configurado no Easypay Backoffice
-- [x] Fallback para WhatsApp quando pagamento falha
+- [x] API Easypay criando sessões com sucesso
+- [x] Webhook Easypay configurado
+- [x] **WhatsApp fallback** - salva pedido no app E cria evento no calendário
 
-### Problema Pendente - Easypay SDK
-- [ ] O SDK inline da Easypay (@easypaypt/checkout-sdk) retorna "generic-error"
-- **Causa provavel**: Configuracao de dominio/checkout nao activada na conta Easypay
-- **Solucao necessaria**: Contactar suporte Easypay para activar checkout SDK
+### PENDENTE
+- [ ] SDK Easypay retorna "generic-error" - requer contacto com suporte Easypay
 
-### Solucao Temporaria Implementada
-Quando o checkout Easypay falha, o site mostra:
-- Mensagem de erro amigavel
-- Botao "Contactar via WhatsApp" que abre conversa com valor do pedido
+## URLs
+- **Preview**: https://obelisco-payments.preview.emergentagent.com
+- **Produção**: https://obeliscoradical.pt
 
-## Proximo Passo Critico
+## Integrações Configuradas
 
-**CONTACTAR EASYPAY:**
-- Email: suporte@easypay.pt
-- Pergunta: "O Checkout SDK (@easypaypt/checkout-sdk) esta a retornar 'generic-error' no meu site https://obeliscoradical.pt. O que preciso configurar para activar o checkout inline?"
+### Easypay (Pagamentos)
+- Account ID: b7940690-d762-423d-a3d6-b530605cd9cf
+- API Key: 00866dd3-71cb-416e-98ad-b6db16b250e6
+- Webhook: https://obeliscoradical.pt/api/webhooks/easypay
 
-## Fluxo de Pagamento (Quando funcionar)
+### Google Calendar
+- Client ID: 223328608522-tpfta8u5miid6pvnhfi3on52upsih989.apps.googleusercontent.com
+- Email conectado: obeliscoradical@gmail.com
+- Funcionalidades:
+  - Verificar disponibilidade de horários
+  - Criar eventos automaticamente
+  - Mostrar slots ocupados no checkout
 
-1. Cliente adiciona servicos ao carrinho
-2. Cliente preenche dados (nome, email, telefone, morada)
-3. Cliente seleciona data e horario
-4. Cliente clica em "Pagar com Cartao / MB Way / Multibanco"
-5. Modal de pagamento Easypay abre
-6. Cliente escolhe metodo e completa pagamento
-7. Easypay processa transacao
-8. Webhook notifica backend do resultado
-9. Pedido e enviado para app de gestao
-10. Cliente ve tela de sucesso
+### App de Gestão
+- URL: https://tech-app-obelisco.emergent.host
+- Endpoint: POST /api/orders/public
 
-## O que foi Implementado
+## Fluxo de Pedido
 
-### Fase 1 - Integracao App de Pedidos
-- [x] Checkout envia pedidos para app de gestao
+1. Cliente adiciona serviços ao carrinho
+2. Preenche dados (nome, email, telefone, morada)
+3. Seleciona **Tipo de Serviço**
+4. Seleciona **Data** (apenas dias úteis)
+5. Seleciona **Hora** (horários ocupados desactivados)
+6. Clica "Pagar"
+7. Se Easypay funcionar → Pagamento online
+8. Se Easypay falhar → Botão WhatsApp que:
+   - Salva pedido no app de gestão
+   - Cria evento no Google Calendar
+   - Abre WhatsApp com mensagem pré-preenchida
 
-### Fase 2 - Pagamento Online Easypay
-- [x] SDK Easypay instalado (@easypaypt/checkout-sdk)
-- [x] Backend com endpoints de pagamento
-- [x] Modal de pagamento com metodos (Cartao, MB Way, Multibanco)
-- [x] Integracao com API Easypay (ambiente de producao)
-- [x] Webhook configurado
-- [x] Armazenamento de pagamentos no MongoDB
+## Tipos de Serviço
+- Instalação
+- Reparação
+- Manutenção
+- Visita Técnica
+- Certificação
 
-### Fase 3 - Assistente de IA
-- [x] Componente ElectricalAssistant.js
-- [x] Endpoint /api/electrical-assistant no backend
-- [x] Usa Emergent LLM Key
+## Horários Disponíveis
+- Segunda a Sexta
+- 09:00, 10:00, 11:00, 12:00, 14:00, 15:00, 16:00, 17:00, 18:00
 
-## Melhorias Futuras (P2)
+## Próximo Passo Crítico
 
-- [ ] Notificacao por email quando pagamento confirmado
-- [ ] SMS de confirmacao para o cliente
-- [ ] Pagina de acompanhamento do pedido
-- [ ] Historico de pagamentos para o cliente
-- [ ] Sistema de cupons de desconto
-- [ ] Refatorar App.js (1800+ linhas) em componentes menores
+**CONTACTAR EASYPAY** (suporte@easypay.pt):
+"O Checkout SDK (@easypaypt/checkout-sdk) retorna 'generic-error' no site https://obeliscoradical.pt. O que preciso configurar para o checkout inline funcionar?"
 
-## Contatos
-
-- **WhatsApp**: +351 911 132 401
-- **Email**: obeliscoradical@gmail.com
-- **Area**: Grande Lisboa
-- **Instagram**: @obeliscoradical
+## Contactos
+- WhatsApp: +351 911 132 401
+- Email: obeliscoradical@gmail.com
+- Instagram: @obeliscoradical
