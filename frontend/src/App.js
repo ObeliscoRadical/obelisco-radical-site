@@ -157,15 +157,15 @@ const faqs = [
 ];
 
 const timeSlots = [
-  "08:00",
   "09:00",
   "10:00",
   "11:00",
-  "13:00",
+  "12:00",
   "14:00",
   "15:00",
   "16:00",
   "17:00",
+  "18:00",
 ];
 
 function scrollToSection(id) {
@@ -473,7 +473,7 @@ function BookingModal({
 }
 
 // Easypay Checkout Component
-function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
+function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [checkoutInstance, setCheckoutInstance] = useState(null);
@@ -680,15 +680,13 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
                 O sistema de pagamento não está disponível de momento. Por favor, entre em contacto via WhatsApp para finalizar o seu pedido.
               </p>
               <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-center">
-                <a
-                  href={`https://wa.me/351911132401?text=Ola,%20gostaria%20de%20finalizar%20o%20meu%20pedido%20no%20valor%20de%20EUR${orderData?.value?.toFixed(2)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={onWhatsAppFallback}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-400"
                 >
                   <MessageCircle className="h-4 w-4" />
                   Contactar via WhatsApp
-                </a>
+                </button>
                 <button
                   onClick={onClose}
                   className="rounded-xl bg-zinc-700 px-4 py-2 text-sm font-semibold text-white hover:bg-zinc-600"
@@ -735,6 +733,16 @@ export default function App() {
   const [customerNotes, setCustomerNotes] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const [serviceType, setServiceType] = useState("");
+
+  // Service types available
+  const serviceTypes = [
+    { value: "instalacao", label: "Instalacao" },
+    { value: "reparacao", label: "Reparacao" },
+    { value: "manutencao", label: "Manutencao" },
+    { value: "visita_tecnica", label: "Visita Tecnica" },
+    { value: "certificacao", label: "Certificacao" },
+  ];
 
   // Payment states
   const [checkoutStep, setCheckoutStep] = useState("form"); // form, payment, success
@@ -815,6 +823,7 @@ export default function App() {
     setCustomerNotes("");
     setSelectedDate("");
     setSelectedTime("");
+    setServiceType("");
     setCheckoutStep("form");
     setShowEasypayCheckout(false);
     setEasypayOrderData(null);
@@ -833,7 +842,8 @@ export default function App() {
       normalizedCustomerPhone.length < 9 ||
       !customerAddress ||
       !selectedDate ||
-      !selectedTime
+      !selectedTime ||
+      !serviceType
     ) {
       setSubmitError("Por favor, preencha todos os campos obrigatorios.");
       return;
@@ -873,6 +883,7 @@ export default function App() {
           notes: customerNotes,
           date: selectedDate,
           time: selectedTime,
+          serviceType: serviceType,
         },
       };
 
@@ -886,12 +897,8 @@ export default function App() {
     }
   };
 
-  // Handle payment success
-  const handlePaymentSuccess = async (paymentData) => {
-    console.log("Payment success:", paymentData);
-    setShowEasypayCheckout(false);
-
-    // Send order to management app
+  // Save order to management app
+  const saveOrderToApp = async (paymentStatus = "PENDENTE", paymentInfo = "") => {
     try {
       const servicesDescription = cart
         .map((item) => `${item.title} (${item.quantity}x) - EUR${item.price * item.quantity}`)
@@ -904,15 +911,13 @@ Subtotal: EUR${subtotal}
 Taxa de deslocacao: EUR${travelFee}
 Total: EUR${total}
 
-PAGAMENTO CONFIRMADO via Easypay
-ID Pagamento: ${paymentData.paymentId}
-Metodo: ${paymentData.method || "Online"}
+ESTADO DO PAGAMENTO: ${paymentStatus}
+${paymentInfo}
 
 Codigo Postal: ${customerPostalCode || "Nao informado"}
 Horario preferido: ${selectedTime}
+Tipo de Servico: ${serviceTypes.find(s => s.value === serviceType)?.label || serviceType}
 Observacoes: ${customerNotes || "Sem observacoes"}`;
-
-      const mainServiceType = cart.length > 0 ? cart[0].id : "manutencao";
 
       await fetch(`${ORDERS_API}/orders/public`, {
         method: "POST",
@@ -924,14 +929,48 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           email: customerEmail,
           phone: customerPhone.replace(/\s+/g, ""),
           address: customerAddress,
-          service_type: mainServiceType,
+          service_type: serviceType,
           preferred_date: selectedDate,
           description: fullDescription,
         }),
       });
+      return true;
     } catch (error) {
       console.error("Error sending to management app:", error);
+      return false;
     }
+  };
+
+  // Handle WhatsApp fallback (saves order first, then opens WhatsApp)
+  const handleWhatsAppFallback = async () => {
+    // Save order to app first
+    await saveOrderToApp("PENDENTE - VIA WHATSAPP", "Cliente contactou via WhatsApp para finalizar pagamento");
+    
+    // Open WhatsApp
+    const whatsappMsg = `Ola, gostaria de finalizar o meu pedido:
+- Nome: ${customerName}
+- Valor: EUR${total.toFixed(2)}
+- Data: ${selectedDate}
+- Hora: ${selectedTime}
+- Tipo: ${serviceTypes.find(s => s.value === serviceType)?.label || serviceType}`;
+    
+    window.open(`https://wa.me/351911132401?text=${encodeURIComponent(whatsappMsg)}`, '_blank');
+    
+    // Close checkout and show success
+    setShowEasypayCheckout(false);
+    setCheckoutStep("success");
+  };
+
+  // Handle payment success
+  const handlePaymentSuccess = async (paymentData) => {
+    console.log("Payment success:", paymentData);
+    setShowEasypayCheckout(false);
+
+    // Send order to management app
+    await saveOrderToApp(
+      "PAGAMENTO CONFIRMADO via Easypay",
+      `ID Pagamento: ${paymentData.paymentId}\nMetodo: ${paymentData.method || "Online"}`
+    );
 
     setCheckoutStep("success");
   };
@@ -1656,18 +1695,56 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
 
                         <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
                           <h3 className="mb-5 text-xl font-bold text-white">
+                            Tipo de Servico
+                          </h3>
+                          <select
+                            value={serviceType}
+                            onChange={(e) => setServiceType(e.target.value)}
+                            className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
+                            data-testid="service-type-select"
+                          >
+                            <option value="">Selecione o tipo de servico *</option>
+                            {serviceTypes.map((type) => (
+                              <option key={type.value} value={type.value}>
+                                {type.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
+                          <h3 className="mb-5 text-xl font-bold text-white">
                             Agendamento
                           </h3>
+                          <p className="mb-4 text-sm text-zinc-400">
+                            Segunda a Sexta, das 9h às 18h
+                          </p>
 
                           <div className="grid gap-4 md:grid-cols-2">
-                            <input
-                              type="date"
-                              min={new Date().toISOString().split("T")[0]}
-                              value={selectedDate}
-                              onChange={(e) => setSelectedDate(e.target.value)}
-                              className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
-                              data-testid="date-input"
-                            />
+                            <div>
+                              <input
+                                type="date"
+                                min={new Date().toISOString().split("T")[0]}
+                                value={selectedDate}
+                                onChange={(e) => {
+                                  const date = new Date(e.target.value);
+                                  const day = date.getDay();
+                                  // 0 = Sunday, 6 = Saturday
+                                  if (day === 0 || day === 6) {
+                                    alert("Por favor, selecione um dia util (Segunda a Sexta)");
+                                    return;
+                                  }
+                                  setSelectedDate(e.target.value);
+                                }}
+                                className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
+                                data-testid="date-input"
+                              />
+                              {selectedDate && (
+                                <p className="mt-1 text-xs text-zinc-500">
+                                  {new Date(selectedDate).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}
+                                </p>
+                              )}
+                            </div>
 
                             <select
                               value={selectedTime}
@@ -1833,6 +1910,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
         onClose={() => setShowEasypayCheckout(false)}
         orderData={easypayOrderData}
         onPaymentSuccess={handlePaymentSuccess}
+        onWhatsAppFallback={handleWhatsAppFallback}
       />
 
       <BookingModal
