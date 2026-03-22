@@ -498,20 +498,20 @@ def get_google_flow():
 async def google_calendar_login():
     """Start Google Calendar OAuth flow"""
     try:
-        flow = get_google_flow()
-        authorization_url, state = flow.authorization_url(
-            access_type='offline',
-            prompt='consent',
-            include_granted_scopes='true'
-        )
+        # Build authorization URL manually without PKCE
+        params = {
+            'client_id': GOOGLE_CLIENT_ID,
+            'redirect_uri': GOOGLE_REDIRECT_URI,
+            'scope': 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.email',
+            'response_type': 'code',
+            'access_type': 'offline',
+            'prompt': 'consent'
+        }
         
-        # Store state for verification
-        await db.oauth_states.insert_one({
-            "state": state,
-            "created_at": datetime.now(timezone.utc)
-        })
+        import urllib.parse
+        authorization_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urllib.parse.urlencode(params)}"
         
-        return {"authorization_url": authorization_url, "state": state}
+        return {"authorization_url": authorization_url}
     except Exception as e:
         logger.error(f"Google OAuth login error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
