@@ -567,6 +567,59 @@ async def google_calendar_callback(code: str, state: str = None):
         logger.error(f"Google OAuth callback error: {str(e)}")
         return RedirectResponse(url=f"https://obelisco-payments.preview.emergentagent.com?calendar_error={str(e)}")
 
+class OAuthCodeRequest(BaseModel):
+    code: str
+    state: str = None
+
+@api_router.post("/oauth/calendar/process-code")
+async def process_oauth_code(request: OAuthCodeRequest):
+    """Process OAuth code from frontend"""
+    try:
+        # Exchange code for tokens
+        async with httpx.AsyncClient() as client_http:
+            token_response = await client_http.post(
+                'https://oauth2.googleapis.com/token',
+                data={
+                    'code': request.code,
+                    'client_id': GOOGLE_CLIENT_ID,
+                    'client_secret': GOOGLE_CLIENT_SECRET,
+                    'redirect_uri': GOOGLE_REDIRECT_URI,
+                    'grant_type': 'authorization_code'
+                }
+            )
+            tokens = token_response.json()
+        
+        if 'error' in tokens:
+            return {"success": False, "error": tokens.get('error_description', 'Token exchange failed')}
+        
+        # Get user info
+        async with httpx.AsyncClient() as client_http:
+            user_response = await client_http.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {tokens["access_token"]}'}
+            )
+            user_info = user_response.json()
+        
+        # Store tokens in database
+        await db.google_calendar_tokens.update_one(
+            {"user_id": "admin"},
+            {
+                "$set": {
+                    "tokens": tokens,
+                    "email": user_info.get('email'),
+                    "updated_at": datetime.now(timezone.utc)
+                }
+            },
+            upsert=True
+        )
+        
+        logger.info(f"Google Calendar connected for {user_info.get('email')}")
+        return {"success": True, "email": user_info.get('email')}
+        
+    except Exception as e:
+        logger.error(f"OAuth code processing error: {str(e)}")
+        return {"success": False, "error": str(e)}
+
 async def get_calendar_credentials():
     """Get and refresh Google Calendar credentials"""
     token_doc = await db.google_calendar_tokens.find_one({"user_id": "admin"})

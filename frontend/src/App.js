@@ -750,6 +750,55 @@ export default function App() {
   const [easypayOrderData, setEasypayOrderData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [calendarConnected, setCalendarConnected] = useState(false);
+
+  // Handle OAuth callback on page load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    const calendarSuccess = urlParams.get('calendar_connected');
+    const calendarError = urlParams.get('calendar_error');
+    
+    if (calendarSuccess === 'true') {
+      setCalendarConnected(true);
+      alert('Google Calendar conectado com sucesso!');
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (calendarError) {
+      alert('Erro ao conectar Google Calendar: ' + calendarError);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (code) {
+      // Process OAuth callback
+      const state = urlParams.get('state');
+      fetch(`${BACKEND_URL}/api/oauth/calendar/process-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, state })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setCalendarConnected(true);
+            alert('Google Calendar conectado com sucesso!');
+          } else {
+            alert('Erro ao conectar: ' + (data.error || 'Erro desconhecido'));
+          }
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
+        .catch(err => {
+          console.error('OAuth error:', err);
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    }
+  }, []);
+
+  // Check calendar status on load
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/calendar/status`)
+      .then(res => res.json())
+      .then(data => setCalendarConnected(data.connected))
+      .catch(err => console.log('Calendar status check failed'));
+  }, []);
 
   const nav = [
     { label: "Inicio", id: "hero" },
