@@ -30,6 +30,9 @@ import {
   CreditCard,
   Smartphone,
   Landmark,
+  Sun,
+  Car,
+  AlertTriangle,
 } from "lucide-react";
 
 // Logo URL
@@ -40,53 +43,117 @@ const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001"
 const ORDERS_API = "https://tech-app-obelisco.emergent.host/api";
 
 const services = [
+  // === SERVIÇOS PRINCIPAIS ===
   {
     id: "instalacao",
-    title: "Instalacoes Eletricas",
+    title: "Instalacao Eletrica Completa",
     description:
-      "Instalacoes eletricas completas para casas, apartamentos e empresas. Execucao profissional com seguranca e acabamento de qualidade.",
+      "Instalacoes eletricas para casas, apartamentos e escritorios. Inclui quadro, cablagem e pontos de luz/tomadas. Trabalho certificado.",
     icon: Plug,
-    price: 50,
-  },
-  {
-    id: "iluminacao",
-    title: "Iluminacao Interior e Exterior",
-    description:
-      "Projetos de iluminacao funcional e decorativa com solucoes LED. Mais eficiencia, melhor estetica e instalacao segura.",
-    icon: Lightbulb,
-    price: 27.5,
-  },
-  {
-    id: "manutencao",
-    title: "Manutencao e Reparacao",
-    description:
-      "Diagnostico e reparacao de falhas eletricas. Solucoes rapidas para restaurar o funcionamento com seguranca.",
-    icon: Wrench,
-    price: 37,
+    price: 45,
+    priceNote: "por ponto",
   },
   {
     id: "quadro",
-    title: "Quadros Eletricos",
+    title: "Quadro Eletrico",
     description:
-      "Instalacao, substituicao e organizacao de quadros eletricos. Mais seguranca e melhor protecao para a instalacao eletrica.",
+      "Instalacao, substituicao ou modernizacao de quadros eletricos monofasicos ou trifasicos. Disjuntores e protecao diferencial incluidos.",
     icon: CircuitBoard,
-    price: 150,
+    price: 280,
+    priceNote: "a partir de",
   },
+  {
+    id: "manutencao",
+    title: "Reparacao e Diagnostico",
+    description:
+      "Identificacao e reparacao de avarias eletricas: curto-circuitos, falhas de energia, tomadas danificadas. Resposta rapida.",
+    icon: Wrench,
+    price: 40,
+    priceNote: "por hora",
+  },
+  {
+    id: "iluminacao",
+    title: "Iluminacao LED",
+    description:
+      "Instalacao de candeeiros, focos embutidos, fitas LED e projectores. Solucoes modernas para poupar energia.",
+    icon: Lightbulb,
+    price: 25,
+    priceNote: "por ponto",
+  },
+  // === SERVIÇOS RESIDENCIAIS ===
+  {
+    id: "tomadas",
+    title: "Tomadas e Interruptores",
+    description:
+      "Instalacao ou substituicao de tomadas, interruptores simples, duplos ou com regulador de intensidade.",
+    icon: Plug,
+    price: 20,
+    priceNote: "por unidade",
+  },
+  {
+    id: "certificacao",
+    title: "Certificacao DGEG",
+    description:
+      "Emissao de certificado de conformidade da instalacao eletrica. Obrigatorio para alteracao de potencia ou venda de imovel.",
+    icon: Award,
+    price: 150,
+    priceNote: "a partir de",
+  },
+  {
+    id: "potencia",
+    title: "Aumento de Potencia",
+    description:
+      "Avaliacao e preparacao da instalacao para aumento de potencia contratada. Inclui visita tecnica e documentacao.",
+    icon: Zap,
+    price: 180,
+    priceNote: "a partir de",
+  },
+  // === SERVIÇOS ESPECIALIZADOS ===
+  {
+    id: "carregador",
+    title: "Carregador Veiculo Eletrico",
+    description:
+      "Instalacao de wallbox para carregamento de carro eletrico em casa ou condominio. Compativel com todas as marcas.",
+    icon: Car,
+    price: 350,
+    priceNote: "a partir de",
+  },
+  {
+    id: "domotica",
+    title: "Domotica e Automacao",
+    description:
+      "Instalacao de sistemas de automacao residencial: iluminacao inteligente, estores automaticos, controlo por app.",
+    icon: Home,
+    price: 75,
+    priceNote: "por dispositivo",
+  },
+  {
+    id: "paineis",
+    title: "Paineis Solares",
+    description:
+      "Consultoria e instalacao de sistemas fotovoltaicos para autoconsumo. Reduza a sua fatura de eletricidade.",
+    icon: Sun,
+    price: 500,
+    priceNote: "consulta + projeto",
+  },
+  // === SERVIÇOS COMERCIAIS ===
   {
     id: "cablagem",
     title: "Cablagem Estruturada",
     description:
-      "Infraestrutura para energia, dados e telecomunicacoes. Solucoes organizadas para ambientes residenciais e empresariais.",
+      "Infraestrutura de rede para escritorios e lojas. Cabos de dados, fibra otica e organizacao de bastidores.",
     icon: Cable,
-    price: 95,
+    price: 85,
+    priceNote: "por ponto",
   },
   {
-    id: "seguranca",
-    title: "Seguranca e Inspecao",
+    id: "urgencia",
+    title: "Servico de Urgencia",
     description:
-      "Avaliacao tecnica e melhorias de seguranca na instalacao eletrica. Reducao de riscos com acompanhamento profissional.",
-    icon: ShieldCheck,
-    price: 110,
+      "Atendimento prioritario para emergencias eletricas fora do horario normal. Disponivel noites e fins de semana.",
+    icon: AlertTriangle,
+    price: 75,
+    priceNote: "por hora",
   },
 ];
 
@@ -1485,9 +1552,16 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                     </p>
 
                     <div className="mt-6 flex items-center justify-between gap-4">
-                      <span className="text-lg font-bold text-yellow-300">
-                        Desde EUR{service.price}
-                      </span>
+                      <div>
+                        <span className="text-lg font-bold text-yellow-300">
+                          EUR{service.price}
+                        </span>
+                        {service.priceNote && (
+                          <span className="ml-1 text-sm text-zinc-500">
+                            {service.priceNote}
+                          </span>
+                        )}
+                      </div>
 
                       <button
                         onClick={() => addToCart(service)}
