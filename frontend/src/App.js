@@ -157,6 +157,7 @@ const faqs = [
 ];
 
 const timeSlots = [
+  "08:00",
   "09:00",
   "10:00",
   "11:00",
@@ -888,27 +889,42 @@ export default function App() {
       .catch(err => console.log('Calendar status check failed'));
   }, []);
 
-  // Fetch booked slots when date changes
+  // Fetch booked slots when date changes - using app API
   useEffect(() => {
-    if (selectedDate && calendarConnected) {
+    if (selectedDate) {
       setCheckingAvailability(true);
-      const startDate = selectedDate;
-      const endDate = selectedDate;
       
-      fetch(`${BACKEND_URL}/api/calendar/booked-slots?start_date=${startDate}&end_date=${endDate}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.slots) {
-            setBookedSlots(data.slots);
+      // Check each time slot for availability using app API
+      const checkSlots = async () => {
+        const bookedList = [];
+        
+        for (const time of timeSlots) {
+          try {
+            const response = await fetch(
+              `${ORDERS_API}/orders/check-availability?preferred_date=${selectedDate}T${time}&duration_hours=2`,
+              { method: 'POST' }
+            );
+            const data = await response.json();
+            
+            if (data.has_conflict) {
+              bookedList.push({
+                date: selectedDate,
+                start_time: time,
+                title: 'Ocupado'
+              });
+            }
+          } catch (err) {
+            console.log('Failed to check slot:', time);
           }
-          setCheckingAvailability(false);
-        })
-        .catch(err => {
-          console.log('Failed to fetch booked slots');
-          setCheckingAvailability(false);
-        });
+        }
+        
+        setBookedSlots(bookedList);
+        setCheckingAvailability(false);
+      };
+      
+      checkSlots();
     }
-  }, [selectedDate, calendarConnected]);
+  }, [selectedDate]);
 
   // Check if a time slot is booked
   const isTimeSlotBooked = (time) => {
@@ -916,30 +932,6 @@ export default function App() {
     return bookedSlots.some(slot => 
       slot.date === selectedDate && slot.start_time === time
     );
-  };
-
-  // Create calendar event after order
-  const createCalendarEvent = async (orderDetails) => {
-    if (!calendarConnected) return;
-    
-    try {
-      await fetch(`${BACKEND_URL}/api/calendar/create-event`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: `${serviceTypes.find(s => s.value === serviceType)?.label || 'Serviço'} - Obelisco Radical`,
-          date: selectedDate,
-          time: selectedTime,
-          duration_hours: 2,
-          description: cart.map(item => `${item.title} (${item.quantity}x)`).join(', '),
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_address: customerAddress
-        })
-      });
-    } catch (err) {
-      console.error('Failed to create calendar event:', err);
-    }
   };
 
   const nav = [
@@ -1088,7 +1080,7 @@ export default function App() {
     }
   };
 
-  // Save order to management app
+  // Save order to management app (automatically adds to Google Calendar)
   const saveOrderToApp = async (paymentStatus = "PENDENTE", paymentInfo = "") => {
     try {
       const servicesDescription = cart
@@ -1110,7 +1102,8 @@ Horario preferido: ${selectedTime}
 Tipo de Servico: ${serviceTypes.find(s => s.value === serviceType)?.label || serviceType}
 Observacoes: ${customerNotes || "Sem observacoes"}`;
 
-      await fetch(`${ORDERS_API}/orders/public`, {
+      // Use the app API which automatically creates Google Calendar event
+      const response = await fetch(`${ORDERS_API}/orders/public`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1121,13 +1114,13 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           phone: customerPhone.replace(/\s+/g, ""),
           address: customerAddress,
           service_type: serviceType,
-          preferred_date: selectedDate,
+          preferred_date: `${selectedDate}T${selectedTime}`,
           description: fullDescription,
         }),
       });
       
-      // Create calendar event
-      await createCalendarEvent();
+      const result = await response.json();
+      console.log("Order created:", result);
       
       return true;
     } catch (error) {
@@ -1912,7 +1905,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                             Agendamento
                           </h3>
                           <p className="mb-4 text-sm text-zinc-400">
-                            Segunda a Sexta, das 9h às 18h
+                            Segunda a Sexta, das 8h às 18h
                           </p>
 
                           <div className="grid gap-4 md:grid-cols-2">
@@ -1970,9 +1963,9 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                                 );
                               })}
                             </select>
-                            {calendarConnected && (
+                            {selectedDate && (
                               <p className="mt-1 text-xs text-green-500">
-                                ✓ Agenda conectada - horários ocupados indisponíveis
+                                ✓ Verificação de disponibilidade activa
                               </p>
                             )}
                           </div>
