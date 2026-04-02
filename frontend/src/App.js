@@ -2003,59 +2003,54 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                                     }
                                     
                                     const day = selectedDateObj.getDay();
-                                    // 0 = Sunday, 6 = Saturday
                                     if (day === 0 || day === 6) {
                                       alert("Por favor, selecione um dia util (Segunda a Sexta)");
                                       return;
                                     }
                                     setSelectedDate(selectedValue);
                                   }}
-                                  className="w-full rounded-2xl border-2 border-yellow-400/50 bg-zinc-900 px-4 py-4 text-white text-lg font-medium outline-none transition focus:border-yellow-400 cursor-pointer"
+                                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
                                   data-testid="date-input"
                                   style={{ colorScheme: 'dark' }}
                                 />
-                                <CalendarIcon className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-yellow-400 pointer-events-none" />
                               </div>
                               {selectedDate && (
-                                <p className="mt-2 text-sm text-yellow-400 font-medium">
+                                <p className="mt-1 text-xs text-zinc-500">
                                   {new Date(selectedDate).toLocaleDateString('pt-PT', { weekday: 'long', day: 'numeric', month: 'long' })}
                                 </p>
                               )}
                             </div>
 
-                            <div className="relative">
-                              <select
-                                value={selectedTime}
-                                onChange={(e) => {
-                                  const time = e.target.value;
-                                  if (isTimeSlotBooked(time)) {
-                                    alert('Este horário já está ocupado. Por favor, escolha outro.');
-                                    return;
-                                  }
-                                  setSelectedTime(time);
-                                }}
-                                className="w-full rounded-2xl border-2 border-yellow-400/50 bg-zinc-900 px-4 py-4 text-white text-lg font-medium outline-none transition focus:border-yellow-400 cursor-pointer appearance-none"
-                                data-testid="time-select"
-                                disabled={checkingAvailability}
-                                style={{ colorScheme: 'dark' }}
-                              >
-                                <option value="">{checkingAvailability ? 'A verificar...' : 'Escolher hora *'}</option>
-                                {timeSlots.map((slot) => {
-                                  const booked = isTimeSlotBooked(slot);
-                                  return (
-                                    <option 
-                                      key={slot} 
-                                      value={slot}
-                                      disabled={booked}
-                                      style={{ color: booked ? '#ef4444' : 'inherit' }}
-                                    >
-                                      {slot} {booked ? '(Ocupado)' : ''}
-                                    </option>
-                                  );
-                                })}
-                              </select>
-                              <Clock3 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-yellow-400 pointer-events-none" />
-                            </div>
+                            <select
+                              value={selectedTime}
+                              onChange={(e) => {
+                                const time = e.target.value;
+                                if (isTimeSlotBooked(time)) {
+                                  alert('Este horário já está ocupado. Por favor, escolha outro.');
+                                  return;
+                                }
+                                setSelectedTime(time);
+                              }}
+                              className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-white outline-none transition focus:border-yellow-400"
+                              data-testid="time-select"
+                              disabled={checkingAvailability}
+                              style={{ colorScheme: 'dark' }}
+                            >
+                              <option value="">{checkingAvailability ? 'A verificar...' : 'Escolher hora *'}</option>
+                              {timeSlots.map((slot) => {
+                                const booked = isTimeSlotBooked(slot);
+                                return (
+                                  <option 
+                                    key={slot} 
+                                    value={slot}
+                                    disabled={booked}
+                                    style={{ color: booked ? '#ef4444' : 'inherit' }}
+                                  >
+                                    {slot} {booked ? '(Ocupado)' : ''}
+                                  </option>
+                                );
+                              })}
+                            </select>
                           </div>
                           
                           {selectedDate && (
