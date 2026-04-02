@@ -1996,15 +1996,14 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                                     tomorrow.setDate(tomorrow.getDate() + 1);
                                     tomorrow.setHours(0, 0, 0, 0);
                                     
-                                    // Double check: don't allow today or past dates
+                                    // Silently reject today or past dates
                                     if (selectedDateObj < tomorrow) {
-                                      alert("Agendamentos apenas a partir de amanha. Por favor, selecione outra data.");
                                       return;
                                     }
                                     
                                     const day = selectedDateObj.getDay();
+                                    // Silently reject weekends
                                     if (day === 0 || day === 6) {
-                                      alert("Por favor, selecione um dia util (Segunda a Sexta)");
                                       return;
                                     }
                                     setSelectedDate(selectedValue);
@@ -2026,7 +2025,6 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                               onChange={(e) => {
                                 const time = e.target.value;
                                 if (isTimeSlotBooked(time)) {
-                                  alert('Este horário já está ocupado. Por favor, escolha outro.');
                                   return;
                                 }
                                 setSelectedTime(time);
