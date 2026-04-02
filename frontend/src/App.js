@@ -1986,7 +1986,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                             <div>
                               <input
                                 type="date"
-                                min={new Date().toISOString().split("T")[0]}
+                                min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
                                 value={selectedDate}
                                 onChange={(e) => {
                                   const date = new Date(e.target.value);
