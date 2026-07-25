@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import httpx
+import stripe
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -25,10 +26,10 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-# Easypay Configuration (PRODUCTION credentials)
-EASYPAY_ACCOUNT_ID = os.environ.get('EASYPAY_ACCOUNT_ID')
-EASYPAY_API_KEY = os.environ.get('EASYPAY_API_KEY')
-EASYPAY_BASE_URL = os.environ.get('EASYPAY_BASE_URL', 'https://api.easypay.pt/2.0')
+# Stripe Configuration
+stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
+STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
+STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
 # Emergent LLM Key for AI Assistant
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
@@ -73,28 +74,31 @@ class CustomerData(BaseModel):
     email: str
     phone: Optional[str] = None
 
-class CheckoutRequest(BaseModel):
-    value: float
+class StripeCheckoutRequest(BaseModel):
+    amount: float
     currency: str = "EUR"
     items: List[OrderItem]
     customer: CustomerData
-    payment_methods: Optional[List[str]] = ["cc", "mb", "mbw"]
+    origin_url: str
     order_id: Optional[str] = None
+    metadata: Optional[dict] = None
 
 class PaymentRecord(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    easypay_id: Optional[str] = None
-    easypay_session: Optional[str] = None
+    stripe_session_id: Optional[str] = None
+    stripe_payment_intent_id: Optional[str] = None
     customer_name: str
     customer_email: str
     customer_phone: Optional[str] = None
     amount: float
     currency: str = "EUR"
     status: str = "pending"
+    payment_status: str = "pending"
     payment_method: Optional[str] = None
     items: List[dict] = []
     order_id: Optional[str] = None
+    metadata: Optional[dict] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -120,95 +124,67 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     return status_checks
 
-# ==================== EASYPAY PAYMENT ENDPOINTS ====================
+# ==================== STRIPE PAYMENT ENDPOINTS ====================
 
-@api_router.post("/checkout/create-session")
-async def create_checkout_session(request: CheckoutRequest):
-    """Create a new checkout session with Easypay"""
+@api_router.get("/stripe/config")
+async def get_stripe_config():
+    """Get Stripe publishable key for frontend"""
+    return {"publishable_key": STRIPE_PUBLISHABLE_KEY}
+
+@api_router.post("/stripe/create-checkout-session")
+async def create_stripe_checkout_session(request: StripeCheckoutRequest):
+    """Create a Stripe Checkout Session"""
     
     try:
-        # Generate unique order key
         order_key = request.order_id or f"order-{uuid.uuid4().hex[:12]}"
         
-        # Prepare Easypay request payload
-        easypay_payload = {
-            "type": ["single"],
-            "payment": {
-                "methods": request.payment_methods,
-                "type": "sale",
-                "currency": request.currency,
-                "capture": {
-                    "descriptive": f"Obelisco Radical - Servicos Eletricos"
-                }
-            },
-            "order": {
-                "items": [
-                    {
-                        "description": item.description,
-                        "quantity": item.quantity,
-                        "key": f"item-{idx}",
-                        "value": item.value
-                    }
-                    for idx, item in enumerate(request.items)
-                ],
-                "key": order_key,
-                "value": request.value
-            },
-            "customer": {
-                "name": request.customer.name,
-                "email": request.customer.email,
-                "phone": request.customer.phone or ""
-            }
-        }
+        # Convert amount to cents (Stripe uses smallest currency unit)
+        amount_cents = int(request.amount * 100)
         
-        logger.info(f"Creating Easypay checkout session for order: {order_key}")
-        
-        # Make request to Easypay API
-        async with httpx.AsyncClient() as http_client:
-            response = await http_client.post(
-                f"{EASYPAY_BASE_URL}/checkout",
-                json=easypay_payload,
-                headers={
-                    "AccountId": EASYPAY_ACCOUNT_ID,
-                    "ApiKey": EASYPAY_API_KEY,
-                    "Content-Type": "application/json"
+        # Build line items for Stripe
+        line_items = []
+        for item in request.items:
+            line_items.append({
+                "price_data": {
+                    "currency": request.currency.lower(),
+                    "product_data": {
+                        "name": item.description,
+                    },
+                    "unit_amount": int(item.value / item.quantity * 100),
                 },
-                timeout=30.0
-            )
-            
-            logger.info(f"Easypay response status: {response.status_code}")
-            logger.info(f"Easypay response body: {response.text[:500]}")
-            
-            if response.status_code not in [200, 201]:
-                logger.error(f"Easypay API error: {response.status_code} - {response.text}")
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Failed to create checkout session: {response.text}"
-                )
-            
-            response_text = response.text
-            if not response_text or response_text.strip() == "":
-                logger.error("Easypay returned empty response")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Payment gateway returned empty response"
-                )
-            
-            easypay_response = response.json()
-            logger.info(f"Easypay checkout created: {easypay_response.get('id')}")
+                "quantity": item.quantity,
+            })
         
-        # Store payment in database
+        # Create Stripe Checkout Session
+        session = stripe.checkout.Session.create(
+            line_items=line_items,
+            mode="payment",
+            success_url=f"{request.origin_url}?payment_success=true&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{request.origin_url}?payment_cancelled=true",
+            customer_email=request.customer.email,
+            metadata={
+                "order_id": order_key,
+                "customer_name": request.customer.name,
+                "customer_phone": request.customer.phone or "",
+                **(request.metadata or {})
+            },
+        )
+        
+        logger.info(f"Stripe session created: {session.id}")
+        
+        # Store payment record in database
         payment_record = PaymentRecord(
-            easypay_id=easypay_response.get("id"),
-            easypay_session=easypay_response.get("session"),
+            stripe_session_id=session.id,
             customer_name=request.customer.name,
             customer_email=request.customer.email,
             customer_phone=request.customer.phone,
-            amount=request.value,
+            amount=request.amount,
             currency=request.currency,
-            status="pending",
+            status="initiated",
+            payment_status="pending",
             items=[item.model_dump() for item in request.items],
-            order_id=order_key
+            order_id=order_key,
+            metadata=request.metadata
         )
         
         doc = payment_record.model_dump()
@@ -219,26 +195,143 @@ async def create_checkout_session(request: CheckoutRequest):
         
         return {
             "success": True,
-            "id": easypay_response.get("id"),
-            "session": easypay_response.get("session"),
-            "config": easypay_response.get("config"),
-            "manifest": easypay_response.get("session"),  # For SDK compatibility
+            "session_id": session.id,
+            "checkout_url": session.url,
             "payment_id": payment_record.id,
-            "redirect_url": f"https://pay.easypay.pt/checkout?manifest={easypay_response.get('session')}"
+            "order_id": order_key
         }
         
-    except httpx.RequestError as e:
-        logger.error(f"Request error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Connection error with payment gateway"
-        )
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
     except Exception as e:
         logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"An unexpected error occurred: {str(e)}"
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+@api_router.get("/stripe/session/{session_id}")
+async def get_stripe_session_status(session_id: str):
+    """Get Stripe session status"""
+    try:
+        # First check our database
+        record = await db.payments.find_one({"stripe_session_id": session_id}, {"_id": 0})
+        
+        # Also check Stripe directly for the latest status
+        try:
+            session = stripe.checkout.Session.retrieve(session_id)
+            stripe_status = session.payment_status
+            
+            # Update our database if Stripe says paid
+            if stripe_status == "paid" and record and record.get("payment_status") != "paid":
+                await db.payments.update_one(
+                    {"stripe_session_id": session_id, "payment_status": {"$ne": "paid"}},
+                    {"$set": {
+                        "status": "completed",
+                        "payment_status": "paid",
+                        "stripe_payment_intent_id": session.payment_intent,
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+                record = await db.payments.find_one({"stripe_session_id": session_id}, {"_id": 0})
+        except stripe.error.StripeError as e:
+            logger.error(f"Stripe session retrieve error: {str(e)}")
+        
+        if not record:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return {
+            "session_id": session_id,
+            "status": record.get("status", "pending"),
+            "payment_status": record.get("payment_status", "pending"),
+            "amount": record.get("amount"),
+            "currency": record.get("currency")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting session status: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/stripe/webhook")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhook events"""
+    
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    
+    try:
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
         )
+    except ValueError as e:
+        logger.error(f"Invalid payload: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid payload")
+    except stripe.error.SignatureVerificationError as e:
+        logger.error(f"Invalid signature: {str(e)}")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    
+    event_type = event["type"]
+    obj = event["data"]["object"]
+    
+    logger.info(f"Received Stripe webhook: {event_type}")
+    
+    # Store webhook event
+    webhook_doc = {
+        "id": str(uuid.uuid4()),
+        "event_id": event.get("id"),
+        "event_type": event_type,
+        "payload": event,
+        "processed": False,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.stripe_webhook_events.insert_one(webhook_doc)
+    
+    # Handle different event types
+    if event_type == "checkout.session.completed":
+        session_id = obj.get("id")
+        payment_status = obj.get("payment_status", "paid")
+        
+        await db.payments.update_one(
+            {"stripe_session_id": session_id, "payment_status": {"$ne": "paid"}},
+            {"$set": {
+                "status": "completed",
+                "payment_status": payment_status,
+                "stripe_payment_intent_id": obj.get("payment_intent"),
+                "payment_method": "card",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        logger.info(f"Payment completed for session: {session_id}")
+        
+    elif event_type == "checkout.session.expired":
+        session_id = obj.get("id")
+        await db.payments.update_one(
+            {"stripe_session_id": session_id},
+            {"$set": {
+                "status": "expired",
+                "payment_status": "expired",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+        
+    elif event_type == "charge.refunded":
+        payment_intent_id = obj.get("payment_intent")
+        await db.payments.update_one(
+            {"stripe_payment_intent_id": payment_intent_id},
+            {"$set": {
+                "status": "refunded",
+                "payment_status": "refunded",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+    
+    # Mark webhook as processed
+    await db.stripe_webhook_events.update_one(
+        {"event_id": event.get("id")},
+        {"$set": {"processed": True}}
+    )
+    
+    return {"status": "ok"}
 
 @api_router.get("/checkout/payment-methods")
 async def get_payment_methods():
@@ -246,22 +339,22 @@ async def get_payment_methods():
     return {
         "methods": [
             {
-                "code": "cc",
-                "name": "Cartao de Credito",
-                "description": "Visa e Mastercard",
+                "code": "card",
+                "name": "Cartao de Credito/Debito",
+                "description": "Visa, Mastercard, American Express",
                 "icon": "credit-card"
             },
             {
-                "code": "mbw",
-                "name": "MB Way",
-                "description": "Pagamento movel portugues",
-                "icon": "mobile"
+                "code": "transfer",
+                "name": "Transferencia Bancaria",
+                "description": "IBAN / Transferencia directa",
+                "icon": "bank"
             },
             {
-                "code": "mb",
-                "name": "Multibanco",
-                "description": "Referencia Multibanco",
-                "icon": "bank"
+                "code": "whatsapp",
+                "name": "Pagar via WhatsApp",
+                "description": "Combinar pagamento directamente",
+                "icon": "message"
             }
         ]
     }
@@ -273,95 +366,13 @@ async def get_payment_details(payment_id: str):
     payment = await db.payments.find_one({"id": payment_id}, {"_id": 0})
     
     if not payment:
-        # Try to find by easypay_id
-        payment = await db.payments.find_one({"easypay_id": payment_id}, {"_id": 0})
+        # Try to find by stripe_session_id
+        payment = await db.payments.find_one({"stripe_session_id": payment_id}, {"_id": 0})
     
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     
     return payment
-
-@api_router.post("/payments/{payment_id}/update-status")
-async def update_payment_status(payment_id: str, status: str):
-    """Update payment status"""
-    
-    result = await db.payments.update_one(
-        {"$or": [{"id": payment_id}, {"easypay_id": payment_id}]},
-        {
-            "$set": {
-                "status": status,
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
-        }
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    
-    return {"success": True, "status": status}
-
-@api_router.post("/webhooks/easypay")
-async def handle_easypay_webhook(request: Request):
-    """Handle incoming Easypay webhook notifications"""
-    
-    try:
-        payload = await request.json()
-        
-        event_id = payload.get("id")
-        event_type = payload.get("type")
-        event_status = payload.get("status")
-        order_key = payload.get("key")
-        
-        logger.info(f"Received Easypay webhook: type={event_type}, status={event_status}, order={order_key}")
-        
-        # Store webhook event
-        webhook_doc = {
-            "id": str(uuid.uuid4()),
-            "event_id": event_id,
-            "event_type": event_type,
-            "status": event_status,
-            "order_key": order_key,
-            "payload": payload,
-            "processed": False,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        }
-        
-        await db.webhook_events.insert_one(webhook_doc)
-        
-        # Update payment status based on event
-        new_status = "pending"
-        if event_type == "capture" and event_status == "success":
-            new_status = "paid"
-        elif event_type == "authorisation" and event_status == "success":
-            new_status = "authorized"
-        elif event_status == "failed":
-            new_status = "failed"
-        
-        # Update payment in database
-        await db.payments.update_one(
-            {"order_id": order_key},
-            {
-                "$set": {
-                    "status": new_status,
-                    "payment_method": payload.get("method"),
-                    "updated_at": datetime.now(timezone.utc).isoformat()
-                }
-            }
-        )
-        
-        # Mark webhook as processed
-        await db.webhook_events.update_one(
-            {"event_id": event_id},
-            {"$set": {"processed": True}}
-        )
-        
-        logger.info(f"Payment {order_key} updated to status: {new_status}")
-        
-        return {"status": "ok"}
-        
-    except Exception as e:
-        logger.error(f"Webhook processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail="Failed to process webhook")
 
 @api_router.get("/payments")
 async def list_payments(limit: int = 50):

@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { startCheckout } from "@easypaypt/checkout-sdk";
 import ElectricalAssistant from "./components/ElectricalAssistant";
 import {
   Menu,
@@ -540,120 +539,99 @@ function BookingModal({
   );
 }
 
-// Easypay Checkout Component
+// Stripe Payment Modal Component
 function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
   const [selectedMethod, setSelectedMethod] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [checkoutInstance, setCheckoutInstance] = useState(null);
-  const [showEasypayForm, setShowEasypayForm] = useState(false);
-  const [mbReference, setMbReference] = useState(null);
 
   useEffect(() => {
     if (!open) {
       setSelectedMethod(null);
       setError(null);
-      setShowEasypayForm(false);
-      setMbReference(null);
-      if (checkoutInstance) {
-        try {
-          checkoutInstance.unmount();
-        } catch (e) {
-          console.log("Unmount error:", e);
-        }
-        setCheckoutInstance(null);
-      }
     }
-  }, [open, checkoutInstance]);
+  }, [open]);
+
+  // Check for payment success on URL params (Stripe redirect back)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentSuccess = urlParams.get('payment_success');
+    const sessionId = urlParams.get('session_id');
+    
+    if (paymentSuccess === 'true' && sessionId) {
+      // Verify payment status
+      fetch(`${BACKEND_URL}/api/stripe/session/${sessionId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.payment_status === 'paid') {
+            onPaymentSuccess({
+              sessionId: sessionId,
+              status: 'success',
+              method: 'card',
+              amount: data.amount
+            });
+          }
+        })
+        .catch(err => console.error('Error verifying payment:', err));
+      
+      // Clean URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [onPaymentSuccess]);
 
   const handleMethodSelect = async (method) => {
     setSelectedMethod(method);
     setError(null);
 
     if (method === 'whatsapp') {
-      // WhatsApp payment - redirect to WhatsApp
       onWhatsAppFallback();
       return;
     }
 
     if (method === 'transfer') {
-      // Show bank transfer details
       return;
     }
 
-    // For card, mbway, mb - try Easypay
-    setLoading(true);
-    try {
-      const response = await fetch(`${BACKEND_URL}/api/checkout/create-session`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          value: orderData.value,
-          currency: "EUR",
-          items: orderData.items,
-          customer: {
-            name: orderData.customer.name,
-            email: orderData.customer.email,
-            phone: orderData.customer.phone,
-          },
-          payment_methods: method === 'card' ? ['cc'] : method === 'mbway' ? ['mbw'] : ['mb'],
-          order_id: orderData.orderId,
-        }),
-      });
-
-      const responseData = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(responseData.detail || "Erro ao criar sessão de pagamento");
-      }
-
-      // For Multibanco, we might get reference directly
-      if (method === 'mb' && responseData.mb_reference) {
-        setMbReference(responseData.mb_reference);
-        setLoading(false);
-        return;
-      }
-
-      // Try to initialize Easypay SDK
-      const manifest = {
-        id: responseData.id,
-        session: responseData.session,
-        config: responseData.config
-      };
-
-      setShowEasypayForm(true);
-
-      const instance = startCheckout(manifest, {
-        display: "inline",
-        id: "easypay-checkout-container",
-        language: "pt",
-        onSuccess: (checkoutInfo) => {
-          onPaymentSuccess({
-            paymentId: checkoutInfo?.payment?.id || responseData.payment_id,
-            status: "success",
-            method: method,
+    // For card payment - use Stripe Checkout
+    if (method === 'card') {
+      setLoading(true);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/stripe/create-checkout-session`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             amount: orderData.value,
-          });
-        },
-        onError: (err) => {
-          console.error("Checkout error:", err);
-          setError("Pagamento online temporariamente indisponível. Por favor, use outra opção.");
-          setShowEasypayForm(false);
-        },
-        logoUrl: logoUrl,
-        accentColor: "#FACC15",
-        backgroundColor: "#18181B",
-        buttonBackgroundColor: "#FACC15",
-        buttonBorderRadius: 16,
-      });
+            currency: "EUR",
+            items: orderData.items,
+            customer: {
+              name: orderData.customer.name,
+              email: orderData.customer.email,
+              phone: orderData.customer.phone,
+            },
+            origin_url: window.location.origin,
+            order_id: orderData.orderId,
+            metadata: orderData.metadata
+          }),
+        });
 
-      setCheckoutInstance(instance);
-      setLoading(false);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.detail || "Erro ao criar sessão de pagamento");
+        }
 
-    } catch (err) {
-      console.error("Payment error:", err);
-      setError("Erro ao processar pagamento. Por favor, tente outra opção.");
-      setLoading(false);
+        // Redirect to Stripe Checkout
+        if (data.checkout_url) {
+          window.location.href = data.checkout_url;
+        } else {
+          throw new Error("URL de checkout não recebida");
+        }
+
+      } catch (err) {
+        console.error("Payment error:", err);
+        setError("Erro ao processar pagamento. Por favor, tente novamente.");
+        setLoading(false);
+      }
     }
   };
 
@@ -697,46 +675,7 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
         {loading && (
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
-            <p className="mt-2 text-zinc-400">A processar...</p>
-          </div>
-        )}
-
-        {showEasypayForm && !loading && (
-          <div className="mb-4">
-            <div
-              id="easypay-checkout-container"
-              className="min-h-[300px] rounded-2xl"
-            />
-            <button
-              onClick={() => {
-                setShowEasypayForm(false);
-                setSelectedMethod(null);
-              }}
-              className="mt-4 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
-            >
-              ← Voltar às opções
-            </button>
-          </div>
-        )}
-
-        {mbReference && !loading && (
-          <div className="mb-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-center">
-            <p className="font-semibold text-blue-300">Referência Multibanco</p>
-            <div className="mt-3 space-y-2 text-white">
-              <p>Entidade: <span className="font-mono font-bold">{mbReference.entity}</span></p>
-              <p>Referência: <span className="font-mono font-bold">{mbReference.reference}</span></p>
-              <p>Valor: <span className="font-bold">EUR{orderData?.value?.toFixed(2)}</span></p>
-            </div>
-            <p className="mt-3 text-xs text-zinc-400">Válido por 72 horas</p>
-            <button
-              onClick={() => {
-                setMbReference(null);
-                setSelectedMethod(null);
-              }}
-              className="mt-4 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
-            >
-              ← Voltar às opções
-            </button>
+            <p className="mt-2 text-zinc-400">A redirecionar para pagamento seguro...</p>
           </div>
         )}
 
@@ -771,12 +710,13 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
           </div>
         )}
 
-        {!selectedMethod && !loading && !showEasypayForm && !mbReference && (
+        {!selectedMethod && !loading && (
           <div className="space-y-3">
-            {/* Card Payment */}
+            {/* Card Payment via Stripe */}
             <button
               onClick={() => handleMethodSelect('card')}
               className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
+              data-testid="payment-card-btn"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
                 <CreditCard className="h-6 w-6 text-white" />
@@ -788,40 +728,11 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
               <ChevronRight className="h-5 w-5 text-zinc-600" />
             </button>
 
-            {/* MB Way */}
-            <button
-              onClick={() => handleMethodSelect('mbway')}
-              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600">
-                <Phone className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-white">MB Way</p>
-                <p className="text-sm text-zinc-400">Pagamento pelo telemóvel</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-zinc-600" />
-            </button>
-
-            {/* Multibanco */}
-            <button
-              onClick={() => handleMethodSelect('mb')}
-              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-800">
-                <Building2 className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-white">Multibanco</p>
-                <p className="text-sm text-zinc-400">Referência para pagamento em ATM</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-zinc-600" />
-            </button>
-
             {/* Bank Transfer */}
             <button
               onClick={() => handleMethodSelect('transfer')}
               className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
+              data-testid="payment-transfer-btn"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-700">
                 <ArrowRight className="h-6 w-6 text-white" />
@@ -837,6 +748,7 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
             <button
               onClick={() => handleMethodSelect('whatsapp')}
               className="flex w-full items-center gap-4 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-left transition hover:border-green-400 hover:bg-green-500/20"
+              data-testid="payment-whatsapp-btn"
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-600">
                 <MessageCircle className="h-6 w-6 text-white" />
@@ -851,7 +763,7 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
         )}
 
         <p className="mt-4 text-center text-xs text-zinc-500">
-          Pagamento seguro processado pela Easypay
+          Pagamento seguro processado pelo Stripe
         </p>
       </motion.div>
     </div>
@@ -1403,10 +1315,8 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 <span className="text-sm font-medium text-green-300">Pagamento Online:</span>
                 <div className="flex items-center gap-3 text-zinc-400">
                   <CreditCard className="h-5 w-5" />
-                  <Smartphone className="h-5 w-5" />
-                  <Landmark className="h-5 w-5" />
                 </div>
-                <span className="text-xs text-zinc-500">Cartao | MB Way | Multibanco</span>
+                <span className="text-xs text-zinc-500">Cartao de Credito/Debito</span>
               </motion.div>
 
               <div className="mt-10 grid gap-4 sm:grid-cols-3">
@@ -1466,7 +1376,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                     {
                       Icon: CreditCard,
                       title: "Pagamento Online Seguro",
-                      text: "Pague com Cartao, MB Way ou Multibanco diretamente no site.",
+                      text: "Pague com Cartao de Credito/Debito diretamente no site via Stripe.",
                     },
                     {
                       Icon: ShieldCheck,
@@ -2184,13 +2094,13 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                       ) : (
                         <span className="flex items-center justify-center gap-2">
                           <CreditCard className="h-5 w-5" />
-                          Pagar com Cartao / MB Way / Multibanco
+                          Pagar com Cartao
                         </span>
                       )}
                     </button>
 
                     <p className="mt-4 text-center text-xs text-zinc-500">
-                      Pagamento seguro processado pela Easypay
+                      Pagamento seguro processado pelo Stripe
                     </p>
                   </div>
                 </div>
