@@ -208,6 +208,143 @@ async def create_stripe_checkout_session(request: StripeCheckoutRequest):
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
 
+class SubscriptionRequest(BaseModel):
+    lookup_key: str
+    customer_email: str
+    customer_name: str
+    customer_phone: Optional[str] = None
+    origin_url: str
+
+@api_router.post("/stripe/create-subscription-session")
+async def create_subscription_session(request: SubscriptionRequest):
+    """Create a Stripe Checkout Session for subscription"""
+    
+    try:
+        # Get price by lookup key
+        prices = stripe.Price.list(lookup_keys=[request.lookup_key], active=True, limit=1).data
+        if not prices:
+            raise HTTPException(status_code=404, detail=f"Price not found: {request.lookup_key}")
+        
+        price = prices[0]
+        
+        # Create Stripe Checkout Session for subscription
+        session = stripe.checkout.Session.create(
+            line_items=[{"price": price.id, "quantity": 1}],
+            mode="subscription",
+            success_url=f"{request.origin_url}?subscription_success=true&session_id={{CHECKOUT_SESSION_ID}}",
+            cancel_url=f"{request.origin_url}?subscription_cancelled=true",
+            customer_email=request.customer_email,
+            metadata={
+                "customer_name": request.customer_name,
+                "customer_phone": request.customer_phone or "",
+                "plan": request.lookup_key,
+            },
+        )
+        
+        logger.info(f"Subscription session created: {session.id} for plan {request.lookup_key}")
+        
+        # Store subscription record in database
+        subscription_doc = {
+            "id": str(uuid.uuid4()),
+            "stripe_session_id": session.id,
+            "customer_name": request.customer_name,
+            "customer_email": request.customer_email,
+            "customer_phone": request.customer_phone,
+            "plan": request.lookup_key,
+            "amount": price.unit_amount / 100,
+            "currency": price.currency.upper(),
+            "status": "initiated",
+            "payment_status": "pending",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        
+        await db.subscriptions.insert_one(subscription_doc)
+        
+        return {
+            "success": True,
+            "session_id": session.id,
+            "checkout_url": session.url,
+            "plan": request.lookup_key,
+            "amount": price.unit_amount / 100,
+            "currency": price.currency.upper()
+        }
+        
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe error: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {str(e)}")
+
+@api_router.get("/stripe/plans")
+async def get_subscription_plans():
+    """Get available subscription plans"""
+    plans = [
+        {
+            "id": "essencial",
+            "lookup_key": "essencial_monthly",
+            "name": "Essencial",
+            "tagline": "Suporte para o dia a dia da sua operação",
+            "price": 349,
+            "currency": "EUR",
+            "interval": "mês",
+            "features": [
+                "Até 3 horas de intervenção técnica/mês",
+                "Deslocação incluída na Grande Lisboa",
+                "Prioridade de resposta: até 48h úteis",
+                "1 visita preventiva semestral",
+                "Apoio telefónico e diagnóstico remoto",
+                "5% de desconto em horas adicionais",
+                "Relatório técnico semestral"
+            ],
+            "ideal_for": "Ideal para pequenas empresas, lojas e escritórios"
+        },
+        {
+            "id": "preventivo",
+            "lookup_key": "preventivo_monthly",
+            "name": "Preventivo",
+            "tagline": "Prevenção que evita custos e paragens",
+            "price": 699,
+            "currency": "EUR",
+            "interval": "mês",
+            "features": [
+                "Até 6 horas de intervenção técnica/mês",
+                "Deslocação incluída na Grande Lisboa",
+                "Prioridade de resposta: até 24h úteis",
+                "2 visitas preventivas por ano",
+                "Manutenção preventiva programada",
+                "10% de desconto em horas adicionais",
+                "Relatório técnico trimestral"
+            ],
+            "ideal_for": "Ideal para empresas e edifícios que pretendem reduzir avarias e custos"
+        },
+        {
+            "id": "total",
+            "lookup_key": "total_monthly",
+            "name": "Total",
+            "tagline": "Cobertura completa, tranquilidade total",
+            "price": 1290,
+            "currency": "EUR",
+            "interval": "mês",
+            "popular": True,
+            "features": [
+                "Até 12 horas de intervenção técnica/mês",
+                "Deslocação incluída na Grande Lisboa",
+                "Prioridade de resposta: até 8h úteis",
+                "2 visitas preventivas trimestrais",
+                "Manutenção preventiva e corretiva",
+                "Consultoria técnica e pequenas melhorias",
+                "15% de desconto em horas adicionais",
+                "Relatório técnico mensal"
+            ],
+            "ideal_for": "Ideal para empresas, condomínios e operações críticas"
+        }
+    ]
+    return {"plans": plans}
+
 @api_router.get("/stripe/session/{session_id}")
 async def get_stripe_session_status(session_id: str):
     """Get Stripe session status"""

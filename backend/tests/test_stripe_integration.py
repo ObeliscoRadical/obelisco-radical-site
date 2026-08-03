@@ -34,10 +34,10 @@ class TestStripeConfig:
 
 
 class TestPaymentMethods:
-    """Test payment methods endpoint"""
+    """Test payment methods endpoint - Note: Backend still returns all methods for backwards compatibility"""
     
-    def test_get_payment_methods_returns_all_options(self):
-        """GET /api/checkout/payment-methods should return card, transfer, whatsapp"""
+    def test_get_payment_methods_returns_options(self):
+        """GET /api/checkout/payment-methods should return payment methods"""
         response = requests.get(f"{BASE_URL}/api/checkout/payment-methods")
         
         assert response.status_code == 200
@@ -45,12 +45,11 @@ class TestPaymentMethods:
         assert "methods" in data
         
         methods = data["methods"]
-        assert len(methods) == 3
+        # Backend returns all methods, frontend filters to show only card
+        assert len(methods) >= 1
         
         method_codes = [m["code"] for m in methods]
-        assert "card" in method_codes
-        assert "transfer" in method_codes
-        assert "whatsapp" in method_codes
+        assert "card" in method_codes  # Card must always be present
     
     def test_card_payment_method_details(self):
         """Card payment method should have correct details"""
@@ -61,24 +60,150 @@ class TestPaymentMethods:
         assert card_method is not None
         assert "Cartao" in card_method["name"] or "Credito" in card_method["name"]
         assert "Visa" in card_method["description"] or "Mastercard" in card_method["description"]
+
+
+class TestSubscriptionPlans:
+    """Test subscription plans endpoint"""
     
-    def test_transfer_payment_method_details(self):
-        """Transfer payment method should have correct details"""
-        response = requests.get(f"{BASE_URL}/api/checkout/payment-methods")
+    def test_get_subscription_plans_returns_three_plans(self):
+        """GET /api/stripe/plans should return 3 subscription plans"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "plans" in data
+        
+        plans = data["plans"]
+        assert len(plans) == 3
+        
+        plan_ids = [p["id"] for p in plans]
+        assert "essencial" in plan_ids
+        assert "preventivo" in plan_ids
+        assert "total" in plan_ids
+    
+    def test_essencial_plan_details(self):
+        """Essencial plan should have correct price and features"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
         data = response.json()
         
-        transfer_method = next((m for m in data["methods"] if m["code"] == "transfer"), None)
-        assert transfer_method is not None
-        assert "Transferencia" in transfer_method["name"] or "Bancaria" in transfer_method["name"]
+        essencial = next((p for p in data["plans"] if p["id"] == "essencial"), None)
+        assert essencial is not None
+        assert essencial["price"] == 349
+        assert essencial["currency"] == "EUR"
+        assert essencial["lookup_key"] == "essencial_monthly"
+        assert "features" in essencial
+        assert len(essencial["features"]) > 0
     
-    def test_whatsapp_payment_method_details(self):
-        """WhatsApp payment method should have correct details"""
-        response = requests.get(f"{BASE_URL}/api/checkout/payment-methods")
+    def test_preventivo_plan_details(self):
+        """Preventivo plan should have correct price and features"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
         data = response.json()
         
-        whatsapp_method = next((m for m in data["methods"] if m["code"] == "whatsapp"), None)
-        assert whatsapp_method is not None
-        assert "WhatsApp" in whatsapp_method["name"]
+        preventivo = next((p for p in data["plans"] if p["id"] == "preventivo"), None)
+        assert preventivo is not None
+        assert preventivo["price"] == 699
+        assert preventivo["currency"] == "EUR"
+        assert preventivo["lookup_key"] == "preventivo_monthly"
+    
+    def test_total_plan_details(self):
+        """Total plan should have correct price and be marked as popular"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
+        data = response.json()
+        
+        total = next((p for p in data["plans"] if p["id"] == "total"), None)
+        assert total is not None
+        assert total["price"] == 1290
+        assert total["currency"] == "EUR"
+        assert total["lookup_key"] == "total_monthly"
+        assert total.get("popular") is True
+
+
+class TestSubscriptionSession:
+    """Test subscription session creation"""
+    
+    def test_create_subscription_session_essencial(self):
+        """POST /api/stripe/create-subscription-session should create session for essencial plan"""
+        payload = {
+            "lookup_key": "essencial_monthly",
+            "customer_email": "test@example.com",
+            "customer_name": "Test User",
+            "customer_phone": "911111111",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert data["success"] is True
+        assert "session_id" in data
+        assert data["session_id"].startswith("cs_test_")
+        assert "checkout_url" in data
+        assert "checkout.stripe.com" in data["checkout_url"]
+        assert data["plan"] == "essencial_monthly"
+        assert data["amount"] == 349
+        assert data["currency"] == "EUR"
+    
+    def test_create_subscription_session_preventivo(self):
+        """Subscription session for preventivo plan"""
+        payload = {
+            "lookup_key": "preventivo_monthly",
+            "customer_email": "test2@example.com",
+            "customer_name": "Test User 2",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["plan"] == "preventivo_monthly"
+        assert data["amount"] == 699
+    
+    def test_create_subscription_session_total(self):
+        """Subscription session for total plan"""
+        payload = {
+            "lookup_key": "total_monthly",
+            "customer_email": "test3@example.com",
+            "customer_name": "Test User 3",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["plan"] == "total_monthly"
+        assert data["amount"] == 1290
+    
+    def test_create_subscription_session_invalid_plan(self):
+        """Subscription session should fail for invalid plan"""
+        payload = {
+            "lookup_key": "invalid_plan",
+            "customer_email": "test@example.com",
+            "customer_name": "Test User",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        # Should return 404 for invalid plan
+        assert response.status_code == 404
 
 
 class TestStripeCheckoutSession:

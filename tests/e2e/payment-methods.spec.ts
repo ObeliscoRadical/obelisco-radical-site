@@ -13,7 +13,7 @@ function getNextWeekday(): string {
   return date.toISOString().split('T')[0];
 }
 
-test.describe('Obelisco Radical - Payment Methods', () => {
+test.describe('Obelisco Radical - Payment Methods (Stripe Only)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     
@@ -37,81 +37,54 @@ test.describe('Obelisco Radical - Payment Methods', () => {
     // Click checkout button to open payment modal
     await page.getByTestId('checkout-btn').click();
     
-    // Wait for payment modal
-    await expect(page.getByText('Forma de Pagamento')).toBeVisible();
+    // Wait for payment modal - use heading role for specificity
+    await expect(page.getByRole('heading', { name: 'Pagamento Seguro' })).toBeVisible();
   });
 
-  test('payment modal displays all payment options', async ({ page }) => {
-    // Card payment option
-    await expect(page.getByTestId('payment-card-btn')).toBeVisible();
-    await expect(page.getByText('Cartão de Crédito/Débito')).toBeVisible();
+  test('payment modal shows only Stripe card payment option', async ({ page }) => {
+    // Stripe card payment button should be visible
+    await expect(page.getByTestId('payment-stripe-btn')).toBeVisible();
+    await expect(page.getByText('Pagar com Cartão')).toBeVisible();
     
-    // Transfer option
-    await expect(page.getByTestId('payment-transfer-btn')).toBeVisible();
-    await expect(page.getByText('Transferência Bancária').first()).toBeVisible();
+    // Transfer and WhatsApp options should NOT be visible in the modal
+    await expect(page.getByTestId('payment-transfer-btn')).not.toBeVisible();
+    await expect(page.getByTestId('payment-whatsapp-btn')).not.toBeVisible();
     
-    // WhatsApp option
-    await expect(page.getByTestId('payment-whatsapp-btn')).toBeVisible();
-    await expect(page.getByText('Pagar via WhatsApp')).toBeVisible();
-    
-    await page.screenshot({ path: 'payment-options.jpeg', quality: 20 });
+    await page.screenshot({ path: 'payment-stripe-only.jpeg', quality: 20 });
   });
 
   test('payment modal shows order total', async ({ page }) => {
     // Should show total amount
     await expect(page.getByText('Total a pagar')).toBeVisible();
     
-    // Should show EUR amount in the payment modal
+    // Should show EUR amount in the payment modal - use paragraph filter
     // Instalacao = EUR45 + Travel fee EUR35 = EUR80
-    // Use the paragraph element in the modal
     await expect(page.getByRole('paragraph').filter({ hasText: 'EUR80.00' })).toBeVisible();
     
     await page.screenshot({ path: 'payment-total.jpeg', quality: 20 });
   });
 
+  test('payment modal shows accepted card brands', async ({ page }) => {
+    // Should show accepted card brands
+    await expect(page.getByText('Aceitamos:')).toBeVisible();
+    await expect(page.getByText('Visa')).toBeVisible();
+    await expect(page.getByText('Mastercard')).toBeVisible();
+    await expect(page.getByText('Amex')).toBeVisible();
+    
+    await page.screenshot({ path: 'payment-cards.jpeg', quality: 20 });
+  });
+
   test('card payment redirects to Stripe checkout', async ({ page }) => {
-    // Click card payment button
-    await page.getByTestId('payment-card-btn').click();
+    // Click Stripe payment button
+    await page.getByTestId('payment-stripe-btn').click();
     
     // Should show loading state
     await expect(page.getByText('A redirecionar para pagamento seguro')).toBeVisible();
     
     // Wait for redirect to Stripe (or timeout)
-    // Note: We can't fully test Stripe redirect in E2E, but we verify the flow starts
     await page.waitForTimeout(2000);
     
     await page.screenshot({ path: 'stripe-redirect.jpeg', quality: 20 });
-  });
-
-  test('transfer payment shows bank details', async ({ page }) => {
-    // Click transfer payment button
-    await page.getByTestId('payment-transfer-btn').click();
-    
-    // Should show bank transfer details
-    await expect(page.getByText('IBAN:')).toBeVisible();
-    await expect(page.getByText(/PT50/)).toBeVisible();
-    await expect(page.getByText('Obelisco Radical Unipessoal Lda')).toBeVisible();
-    
-    // Should show WhatsApp link to send receipt
-    await expect(page.getByText('Enviar comprovativo via WhatsApp')).toBeVisible();
-    
-    await page.screenshot({ path: 'transfer-details.jpeg', quality: 20 });
-  });
-
-  test('transfer payment has back button', async ({ page }) => {
-    // Click transfer payment button
-    await page.getByTestId('payment-transfer-btn').click();
-    
-    // Should show back button
-    await expect(page.getByText('← Voltar às opções')).toBeVisible();
-    
-    // Click back button
-    await page.getByText('← Voltar às opções').click();
-    
-    // Should show payment options again
-    await expect(page.getByTestId('payment-card-btn')).toBeVisible();
-    
-    await page.screenshot({ path: 'transfer-back.jpeg', quality: 20 });
   });
 
   test('payment modal shows Stripe branding', async ({ page }) => {

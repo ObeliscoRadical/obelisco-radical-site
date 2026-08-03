@@ -32,9 +32,9 @@ test.describe('Obelisco Radical - Core Flows', () => {
     await page.getByTestId('nav-services').click();
     await expect(page.locator('#services')).toBeInViewport();
     
-    // Click on FAQ nav
-    await page.getByTestId('nav-faq').click();
-    await expect(page.locator('#faq')).toBeInViewport();
+    // Click on Planos (Obelisco Care) nav
+    await page.getByTestId('nav-obelisco-care').click();
+    await expect(page.locator('#obelisco-care')).toBeInViewport();
     
     // Click on contact nav
     await page.getByTestId('nav-contact').click();

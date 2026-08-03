@@ -1,0 +1,50 @@
+{
+  "summary": "Update mode testing complete - Verified Stripe as exclusive payment method and new Obelisco Care subscription section with 3 plans",
+  "mode": "update",
+  "baseline_commit": "122e8abd020cc6273cc95e99fc3daa8765cdf887",
+  "head_commit": "72a831b1dffe33d55069a9a3dfaa02247a03562a",
+  "specs_created": [
+    "/app/tests/e2e/obelisco-care.spec.ts"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/payment-methods.spec.ts",
+    "/app/tests/e2e/golden-path.spec.ts",
+    "/app/tests/e2e/core-flows.spec.ts"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_stripe_integration.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "regression_results": {
+    "total_specs": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [
+    {
+      "id": "IMP-001",
+      "issue_type": "improvement",
+      "severity": "LOW",
+      "description": "Backend API /api/checkout/payment-methods still returns all 3 payment methods (card, transfer, whatsapp) for backwards compatibility. Frontend correctly filters to show only Stripe card payment. Consider removing unused methods from backend API if no longer needed.",
+      "endpoint_or_component": "/api/checkout/payment-methods"
+    }
+  ],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/payment-methods.spec.ts",
+    "/app/tests/e2e/obelisco-care.spec.ts",
+    "/app/tests/e2e/golden-path.spec.ts",
+    "/app/tests/e2e/core-flows.spec.ts",
+    "/app/backend/tests/test_stripe_integration.py"
+  ],
+  "test_results": {
+    "backend": "100%",
+    "frontend": "100%"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All features verified: 1) Stripe is now the exclusive payment method in the payment modal (no Transfer/WhatsApp options visible), 2) Obelisco Care section displays 3 subscription plans (Essencial €349, Preventivo €699, Total €1290), 3) Plan buttons open subscription modal with form, 4) Subscription form validates and submits to Stripe checkout, 5) Navigation includes 'Planos' link to obelisco-care section, 6) All backend APIs working correctly (/api/stripe/plans, /api/stripe/create-subscription-session, /api/stripe/config)"
+}

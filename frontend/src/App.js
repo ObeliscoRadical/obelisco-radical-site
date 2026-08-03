@@ -32,6 +32,11 @@ import {
   Sun,
   Car,
   AlertTriangle,
+  Check,
+  FileText,
+  Headphones,
+  Shield,
+  Users,
 } from "lucide-react";
 
 // Logo URL
@@ -539,15 +544,13 @@ function BookingModal({
   );
 }
 
-// Stripe Payment Modal Component
-function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
-  const [selectedMethod, setSelectedMethod] = useState(null);
+// Stripe Payment Modal Component - Stripe Only
+function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (!open) {
-      setSelectedMethod(null);
       setError(null);
     }
   }, [open]);
@@ -579,59 +582,46 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
     }
   }, [onPaymentSuccess]);
 
-  const handleMethodSelect = async (method) => {
-    setSelectedMethod(method);
+  const handlePayWithStripe = async () => {
+    setLoading(true);
     setError(null);
+    
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/stripe/create-checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: orderData.value,
+          currency: "EUR",
+          items: orderData.items,
+          customer: {
+            name: orderData.customer.name,
+            email: orderData.customer.email,
+            phone: orderData.customer.phone,
+          },
+          origin_url: window.location.origin,
+          order_id: orderData.orderId,
+          metadata: orderData.metadata
+        }),
+      });
 
-    if (method === 'whatsapp') {
-      onWhatsAppFallback();
-      return;
-    }
-
-    if (method === 'transfer') {
-      return;
-    }
-
-    // For card payment - use Stripe Checkout
-    if (method === 'card') {
-      setLoading(true);
-      try {
-        const response = await fetch(`${BACKEND_URL}/api/stripe/create-checkout-session`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: orderData.value,
-            currency: "EUR",
-            items: orderData.items,
-            customer: {
-              name: orderData.customer.name,
-              email: orderData.customer.email,
-              phone: orderData.customer.phone,
-            },
-            origin_url: window.location.origin,
-            order_id: orderData.orderId,
-            metadata: orderData.metadata
-          }),
-        });
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.detail || "Erro ao criar sessão de pagamento");
-        }
-
-        // Redirect to Stripe Checkout
-        if (data.checkout_url) {
-          window.location.href = data.checkout_url;
-        } else {
-          throw new Error("URL de checkout não recebida");
-        }
-
-      } catch (err) {
-        console.error("Payment error:", err);
-        setError("Erro ao processar pagamento. Por favor, tente novamente.");
-        setLoading(false);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.detail || "Erro ao criar sessão de pagamento");
       }
+
+      // Redirect to Stripe Checkout
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else {
+        throw new Error("URL de checkout não recebida");
+      }
+
+    } catch (err) {
+      console.error("Payment error:", err);
+      setError("Erro ao processar pagamento. Por favor, tente novamente.");
+      setLoading(false);
     }
   };
 
@@ -655,8 +645,8 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
         <div className="mb-6 flex items-center gap-3">
           <CreditCard className="h-6 w-6 text-yellow-400" />
           <div>
-            <h2 className="text-xl font-bold text-white">Forma de Pagamento</h2>
-            <p className="text-sm text-zinc-400">Escolha como pretende pagar</p>
+            <h2 className="text-xl font-bold text-white">Pagamento Seguro</h2>
+            <p className="text-sm text-zinc-400">Pague com cartão de crédito ou débito</p>
           </div>
         </div>
 
@@ -672,93 +662,32 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
           </div>
         )}
 
-        {loading && (
+        {loading ? (
           <div className="flex flex-col items-center justify-center py-8">
             <Loader2 className="h-8 w-8 animate-spin text-yellow-400" />
             <p className="mt-2 text-zinc-400">A redirecionar para pagamento seguro...</p>
           </div>
-        )}
-
-        {selectedMethod === 'transfer' && !loading && (
-          <div className="mb-4 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
-            <p className="font-semibold text-yellow-300">Transferência Bancária</p>
-            <div className="mt-3 space-y-2 text-sm text-white">
-              <p>Banco: <span className="font-semibold">BPI</span></p>
-              <p>IBAN: <span className="font-mono font-bold">PT50 0010 0000 6011 8060 0017 4</span></p>
-              <p>Titular: <span className="font-semibold">Obelisco Radical Unipessoal Lda</span></p>
-              <p>Valor: <span className="font-bold text-yellow-400">EUR{orderData?.value?.toFixed(2)}</span></p>
+        ) : (
+          <div className="space-y-4">
+            {/* Stripe Payment Button */}
+            <button
+              onClick={handlePayWithStripe}
+              className="flex w-full items-center justify-center gap-3 rounded-2xl bg-yellow-400 p-4 font-semibold text-zinc-950 transition hover:bg-yellow-300"
+              data-testid="payment-stripe-btn"
+            >
+              <CreditCard className="h-5 w-5" />
+              Pagar com Cartão
+            </button>
+            
+            {/* Accepted Cards */}
+            <div className="flex items-center justify-center gap-4 text-zinc-500">
+              <span className="text-xs">Aceitamos:</span>
+              <div className="flex items-center gap-2">
+                <span className="rounded bg-zinc-800 px-2 py-1 text-xs font-medium">Visa</span>
+                <span className="rounded bg-zinc-800 px-2 py-1 text-xs font-medium">Mastercard</span>
+                <span className="rounded bg-zinc-800 px-2 py-1 text-xs font-medium">Amex</span>
+              </div>
             </div>
-            <p className="mt-3 text-xs text-zinc-400">
-              Após transferência, envie o comprovativo via WhatsApp para confirmar o pagamento
-            </p>
-            <div className="mt-4 flex gap-2">
-              <a
-                href={`https://wa.me/351911132401?text=Ola,%20acabei%20de%20fazer%20transferencia%20no%20valor%20de%20EUR${orderData?.value?.toFixed(2)}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex-1 rounded-xl bg-green-500 py-2 text-center text-sm font-semibold text-white hover:bg-green-400"
-              >
-                Enviar comprovativo via WhatsApp
-              </a>
-            </div>
-            <button
-              onClick={() => setSelectedMethod(null)}
-              className="mt-3 w-full rounded-xl bg-zinc-800 py-2 text-sm text-zinc-400 hover:bg-zinc-700"
-            >
-              ← Voltar às opções
-            </button>
-          </div>
-        )}
-
-        {!selectedMethod && !loading && (
-          <div className="space-y-3">
-            {/* Card Payment via Stripe */}
-            <button
-              onClick={() => handleMethodSelect('card')}
-              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
-              data-testid="payment-card-btn"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600">
-                <CreditCard className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-white">Cartão de Crédito/Débito</p>
-                <p className="text-sm text-zinc-400">Visa, Mastercard, American Express</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-zinc-600" />
-            </button>
-
-            {/* Bank Transfer */}
-            <button
-              onClick={() => handleMethodSelect('transfer')}
-              className="flex w-full items-center gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 text-left transition hover:border-yellow-400 hover:bg-zinc-900"
-              data-testid="payment-transfer-btn"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-700">
-                <ArrowRight className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-white">Transferência Bancária</p>
-                <p className="text-sm text-zinc-400">IBAN / Transferência directa</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-zinc-600" />
-            </button>
-
-            {/* WhatsApp */}
-            <button
-              onClick={() => handleMethodSelect('whatsapp')}
-              className="flex w-full items-center gap-4 rounded-2xl border border-green-500/30 bg-green-500/10 p-4 text-left transition hover:border-green-400 hover:bg-green-500/20"
-              data-testid="payment-whatsapp-btn"
-            >
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-green-500 to-green-600">
-                <MessageCircle className="h-6 w-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-white">Pagar via WhatsApp</p>
-                <p className="text-sm text-zinc-400">Combinar pagamento directamente</p>
-              </div>
-              <ChevronRight className="h-5 w-5 text-green-500" />
-            </button>
           </div>
         )}
 
@@ -771,14 +700,13 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess, onWhat
 }
 
 // Keep old component name for compatibility
-function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess, onWhatsAppFallback }) {
+function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
   return (
     <PaymentMethodModal
       open={open}
       onClose={onClose}
       orderData={orderData}
       onPaymentSuccess={onPaymentSuccess}
-      onWhatsAppFallback={onWhatsAppFallback}
     />
   );
 }
@@ -819,6 +747,12 @@ export default function App() {
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [bookedSlots, setBookedSlots] = useState([]);
   const [checkingAvailability, setCheckingAvailability] = useState(false);
+  
+  // Subscription states
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [subscriptionError, setSubscriptionError] = useState("");
 
   // Handle OAuth callback on page load
   useEffect(() => {
@@ -916,8 +850,8 @@ export default function App() {
   const nav = [
     { label: "Inicio", id: "hero" },
     { label: "Servicos", id: "services" },
+    { label: "Planos", id: "obelisco-care" },
     { label: "Vantagens", id: "vantagens" },
-    { label: "FAQ", id: "faq" },
     { label: "Contacto", id: "contact" },
   ];
 
@@ -1578,6 +1512,275 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
           </div>
         </section>
 
+        {/* ==================== OBELISCO CARE - SUBSCRIPTION PLANS ==================== */}
+        <section
+          id="obelisco-care"
+          className="border-y border-yellow-500/20 bg-gradient-to-b from-zinc-950 to-zinc-900 px-4 py-24 sm:px-6 lg:px-8"
+        >
+          <div className="mx-auto max-w-7xl">
+            {/* Section Header */}
+            <div className="mb-16 text-center">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="mb-4 inline-flex items-center gap-2 rounded-full border border-yellow-500/30 bg-yellow-500/10 px-4 py-2"
+              >
+                <Shield className="h-4 w-4 text-yellow-400" />
+                <span className="text-sm font-medium text-yellow-300">Planos de Manutencao</span>
+              </motion.div>
+              
+              <motion.h2
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="text-4xl font-black uppercase tracking-tight sm:text-5xl lg:text-6xl"
+              >
+                Obelisco <span className="text-yellow-400">Care</span>
+              </motion.h2>
+              
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="mx-auto mt-4 max-w-2xl text-lg text-zinc-400"
+              >
+                Planos mensais de manutencao e suporte tecnico para empresas e condominios.
+                Previna avarias, reduza custos e tenha resposta prioritaria.
+              </motion.p>
+            </div>
+
+            {/* Pricing Cards */}
+            <div className="grid gap-6 lg:grid-cols-3">
+              {/* Plan: Essencial */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="relative rounded-3xl border border-zinc-800 bg-zinc-900 p-8"
+              >
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold text-white">Essencial</h3>
+                  <p className="mt-1 text-sm text-zinc-400">Suporte para o dia a dia da sua operacao</p>
+                </div>
+                
+                <div className="mb-6">
+                  <span className="text-4xl font-black text-white">349</span>
+                  <span className="text-xl text-zinc-400">EUR/mes</span>
+                </div>
+                
+                <ul className="mb-8 space-y-3">
+                  {[
+                    "Ate 3 horas de intervencao tecnica/mes",
+                    "Deslocacao incluida na Grande Lisboa",
+                    "Prioridade de resposta: ate 48h uteis",
+                    "1 visita preventiva semestral",
+                    "Apoio telefonico e diagnostico remoto",
+                    "5% de desconto em horas adicionais",
+                    "Relatorio tecnico semestral"
+                  ].map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-zinc-300">
+                      <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-400" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                
+                <p className="mb-4 text-xs text-zinc-500">
+                  Ideal para pequenas empresas, lojas e escritorios
+                </p>
+                
+                <button
+                  onClick={() => {
+                    setSelectedPlan({
+                      id: "essencial",
+                      lookup_key: "essencial_monthly",
+                      name: "Essencial",
+                      price: 349
+                    });
+                    setShowSubscriptionModal(true);
+                  }}
+                  className="w-full rounded-2xl border border-yellow-400 bg-transparent px-6 py-4 font-semibold text-yellow-400 transition hover:bg-yellow-400 hover:text-zinc-950"
+                  data-testid="plan-essencial-btn"
+                >
+                  Subscrever Plano
+                </button>
+              </motion.div>
+
+              {/* Plan: Preventivo */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.2 }}
+                className="relative rounded-3xl border border-zinc-800 bg-zinc-900 p-8"
+              >
+                <div className="mb-6">
+                  <h3 className="text-2xl font-bold text-white">Preventivo</h3>
+                  <p className="mt-1 text-sm text-zinc-400">Prevencao que evita custos e paragens</p>
+                </div>
+                
+                <div className="mb-6">
+                  <span className="text-4xl font-black text-white">699</span>
+                  <span className="text-xl text-zinc-400">EUR/mes</span>
+                </div>
+                
+                <ul className="mb-8 space-y-3">
+                  {[
+                    "Ate 6 horas de intervencao tecnica/mes",
+                    "Deslocacao incluida na Grande Lisboa",
+                    "Prioridade de resposta: ate 24h uteis",
+                    "2 visitas preventivas por ano",
+                    "Manutencao preventiva programada",
+                    "10% de desconto em horas adicionais",
+                    "Relatorio tecnico trimestral"
+                  ].map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-zinc-300">
+                      <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-400" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                
+                <p className="mb-4 text-xs text-zinc-500">
+                  Ideal para empresas e edificios que pretendem reduzir avarias e custos
+                </p>
+                
+                <button
+                  onClick={() => {
+                    setSelectedPlan({
+                      id: "preventivo",
+                      lookup_key: "preventivo_monthly",
+                      name: "Preventivo",
+                      price: 699
+                    });
+                    setShowSubscriptionModal(true);
+                  }}
+                  className="w-full rounded-2xl border border-yellow-400 bg-transparent px-6 py-4 font-semibold text-yellow-400 transition hover:bg-yellow-400 hover:text-zinc-950"
+                  data-testid="plan-preventivo-btn"
+                >
+                  Subscrever Plano
+                </button>
+              </motion.div>
+
+              {/* Plan: Total (Popular) */}
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.3 }}
+                className="relative rounded-3xl border-2 border-yellow-400 bg-zinc-900 p-8"
+              >
+                {/* Popular Badge */}
+                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-yellow-400 px-4 py-1.5 text-sm font-bold text-zinc-950">
+                    Mais Procurado
+                  </span>
+                </div>
+                
+                <div className="mb-6 mt-2">
+                  <h3 className="text-2xl font-bold text-white">Total</h3>
+                  <p className="mt-1 text-sm text-zinc-400">Cobertura completa, tranquilidade total</p>
+                </div>
+                
+                <div className="mb-6">
+                  <span className="text-4xl font-black text-yellow-400">1.290</span>
+                  <span className="text-xl text-zinc-400">EUR/mes</span>
+                </div>
+                
+                <ul className="mb-8 space-y-3">
+                  {[
+                    "Ate 12 horas de intervencao tecnica/mes",
+                    "Deslocacao incluida na Grande Lisboa",
+                    "Prioridade de resposta: ate 8h uteis",
+                    "2 visitas preventivas trimestrais",
+                    "Manutencao preventiva e corretiva",
+                    "Consultoria tecnica e pequenas melhorias",
+                    "15% de desconto em horas adicionais",
+                    "Relatorio tecnico mensal"
+                  ].map((feature, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-zinc-300">
+                      <Check className="mt-0.5 h-4 w-4 flex-shrink-0 text-yellow-400" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+                
+                <p className="mb-4 text-xs text-zinc-500">
+                  Ideal para empresas, condominios e operacoes criticas
+                </p>
+                
+                <button
+                  onClick={() => {
+                    setSelectedPlan({
+                      id: "total",
+                      lookup_key: "total_monthly",
+                      name: "Total",
+                      price: 1290
+                    });
+                    setShowSubscriptionModal(true);
+                  }}
+                  className="w-full rounded-2xl bg-yellow-400 px-6 py-4 font-semibold text-zinc-950 transition hover:bg-yellow-300"
+                  data-testid="plan-total-btn"
+                >
+                  Subscrever Plano
+                </button>
+              </motion.div>
+            </div>
+
+            {/* What's Included Section */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.4 }}
+              className="mt-16 rounded-3xl border border-zinc-800 bg-zinc-900/50 p-8"
+            >
+              <h3 className="mb-6 text-xl font-bold text-white">O que esta incluido em todos os planos</h3>
+              
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+                {[
+                  { icon: Clock3, title: "Resposta Definida", text: "Prazos de resposta claros e prioritarios" },
+                  { icon: ShieldCheck, title: "Prevencao e Seguranca", text: "Menos avarias, mais seguranca" },
+                  { icon: FileText, title: "Controlo de Custos", text: "Orcamentacao previsivel e sem surpresas" },
+                  { icon: Users, title: "Um Unico Parceiro", text: "Eletricidade, telecomunicacoes, CCTV, intrusao" },
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-yellow-400/10">
+                      <item.icon className="h-5 w-5 text-yellow-400" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-white">{item.title}</p>
+                      <p className="text-sm text-zinc-400">{item.text}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Conditions Note */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.5 }}
+              className="mt-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-6"
+            >
+              <h4 className="mb-3 text-sm font-semibold text-zinc-300">Condicoes importantes</h4>
+              <ul className="space-y-1.5 text-xs text-zinc-500">
+                <li>• Materiais e equipamentos nao estao incluidos</li>
+                <li>• Horas nao sao acumulaveis de um mes para o outro</li>
+                <li>• Ultrapassado o limite de horas, aplica-se a tabela preferencial do plano contratado</li>
+                <li>• Servicos de urgencia fora do horario comercial sujeitos a disponibilidade</li>
+                <li>• Subscricao mensal - pode cancelar a qualquer momento</li>
+              </ul>
+            </motion.div>
+          </div>
+        </section>
+
         {/* FAQ */}
         <section
           id="faq"
@@ -2110,14 +2313,166 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
         </div>
       )}
 
-      {/* Easypay Checkout Modal */}
+      {/* Stripe Checkout Modal */}
       <EasypayCheckoutModal
         open={showEasypayCheckout}
         onClose={() => setShowEasypayCheckout(false)}
         orderData={easypayOrderData}
         onPaymentSuccess={handlePaymentSuccess}
-        onWhatsAppFallback={handleWhatsAppFallback}
       />
+
+      {/* Subscription Modal */}
+      {showSubscriptionModal && selectedPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-900 p-6"
+          >
+            <button
+              onClick={() => {
+                setShowSubscriptionModal(false);
+                setSelectedPlan(null);
+                setSubscriptionError("");
+              }}
+              className="absolute right-4 top-4 rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="mb-6 flex items-center gap-3">
+              <Shield className="h-6 w-6 text-yellow-400" />
+              <div>
+                <h2 className="text-xl font-bold text-white">Subscrever Plano {selectedPlan.name}</h2>
+                <p className="text-sm text-zinc-400">Preencha os seus dados para continuar</p>
+              </div>
+            </div>
+
+            {/* Plan Summary */}
+            <div className="mb-6 rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-semibold text-white">Obelisco Care - {selectedPlan.name}</p>
+                  <p className="text-sm text-zinc-400">Subscricao mensal</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-yellow-400">{selectedPlan.price}EUR</p>
+                  <p className="text-xs text-zinc-400">/mes</p>
+                </div>
+              </div>
+            </div>
+
+            {subscriptionError && (
+              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-center text-sm text-red-300">
+                {subscriptionError}
+              </div>
+            )}
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setSubscriptionLoading(true);
+                setSubscriptionError("");
+
+                const formData = new FormData(e.target);
+                const name = formData.get("sub_name");
+                const email = formData.get("sub_email");
+                const phone = formData.get("sub_phone");
+
+                try {
+                  const response = await fetch(`${BACKEND_URL}/api/stripe/create-subscription-session`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      lookup_key: selectedPlan.lookup_key,
+                      customer_email: email,
+                      customer_name: name,
+                      customer_phone: phone,
+                      origin_url: window.location.origin + "/#obelisco-care"
+                    }),
+                  });
+
+                  const data = await response.json();
+
+                  if (!response.ok) {
+                    throw new Error(data.detail || "Erro ao criar sessão de pagamento");
+                  }
+
+                  if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                  } else {
+                    throw new Error("URL de checkout não recebida");
+                  }
+                } catch (err) {
+                  console.error("Subscription error:", err);
+                  setSubscriptionError(err.message || "Erro ao processar. Por favor, tente novamente.");
+                  setSubscriptionLoading(false);
+                }
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Nome completo *</label>
+                <input
+                  type="text"
+                  name="sub_name"
+                  required
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  placeholder="O seu nome"
+                  data-testid="subscription-name-input"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Email *</label>
+                <input
+                  type="email"
+                  name="sub_email"
+                  required
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  placeholder="email@exemplo.pt"
+                  data-testid="subscription-email-input"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-zinc-300">Telefone</label>
+                <input
+                  type="tel"
+                  name="sub_phone"
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  placeholder="911 222 333"
+                  data-testid="subscription-phone-input"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={subscriptionLoading}
+                className="mt-4 w-full rounded-2xl bg-yellow-400 px-6 py-4 font-semibold text-zinc-950 transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:opacity-50"
+                data-testid="subscription-submit-btn"
+              >
+                {subscriptionLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    A redirecionar...
+                  </span>
+                ) : (
+                  <span className="flex items-center justify-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Pagar {selectedPlan.price}EUR/mes
+                  </span>
+                )}
+              </button>
+
+              <p className="text-center text-xs text-zinc-500">
+                Pode cancelar a qualquer momento. Pagamento seguro pelo Stripe.
+              </p>
+            </form>
+          </motion.div>
+        </div>
+      )}
 
       <BookingModal
         open={bookingOpen}
