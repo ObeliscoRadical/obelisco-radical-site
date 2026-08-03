@@ -95,7 +95,8 @@ test.describe('Obelisco Radical - Golden Path', () => {
     
     // Step 5: Verify subscription modal opens
     await expect(page.getByText('Subscrever Plano Total')).toBeVisible();
-    await expect(page.getByText('1290EUR', { exact: true })).toBeVisible();
+    // Price format is "1,290EUR" with comma
+    await expect(page.getByTestId('subscription-submit-btn')).toContainText('1,290EUR');
     
     // Step 6: Fill subscription form
     await page.getByTestId('subscription-name-input').fill('Test Subscriber');
@@ -161,7 +162,7 @@ test.describe('Obelisco Radical - Golden Path', () => {
     expect(data.amount).toBe(349);
   });
 
-  test('verify subscription plans API returns correct data', async ({ page, request }) => {
+  test('verify subscription plans API returns correct data with monthly and annual pricing', async ({ page, request }) => {
     const response = await request.get('/api/stripe/plans');
     
     expect(response.ok()).toBeTruthy();
@@ -174,15 +175,19 @@ test.describe('Obelisco Radical - Golden Path', () => {
     expect(planIds).toContain('preventivo');
     expect(planIds).toContain('total');
     
-    // Verify prices
+    // Verify monthly prices (new structure: pricing.monthly.price)
     const essencial = data.plans.find((p: any) => p.id === 'essencial');
-    expect(essencial.price).toBe(349);
+    expect(essencial.pricing.monthly.price).toBe(349);
+    expect(essencial.pricing.annual.price).toBe(3490);
+    expect(essencial.pricing.annual.savings).toBe(698);
     
     const preventivo = data.plans.find((p: any) => p.id === 'preventivo');
-    expect(preventivo.price).toBe(699);
+    expect(preventivo.pricing.monthly.price).toBe(699);
+    expect(preventivo.pricing.annual.price).toBe(6990);
     
     const total = data.plans.find((p: any) => p.id === 'total');
-    expect(total.price).toBe(1290);
+    expect(total.pricing.monthly.price).toBe(1290);
+    expect(total.pricing.annual.price).toBe(12900);
     expect(total.popular).toBe(true);
   });
 

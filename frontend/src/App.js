@@ -753,6 +753,16 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState("");
+  const [billingCycle, setBillingCycle] = useState("monthly"); // monthly or annual
+  
+  // Customer portal states
+  const [showCustomerPortal, setShowCustomerPortal] = useState(false);
+  const [portalEmail, setPortalEmail] = useState("");
+  const [customerSubscriptions, setCustomerSubscriptions] = useState([]);
+  const [customerInterventions, setCustomerInterventions] = useState([]);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [showInterventionForm, setShowInterventionForm] = useState(false);
+  const [selectedSubscription, setSelectedSubscription] = useState(null);
 
   // Handle OAuth callback on page load
   useEffect(() => {
@@ -1106,6 +1116,14 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 {item.label}
               </button>
             ))}
+
+            <button
+              onClick={() => setShowCustomerPortal(true)}
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-yellow-400 hover:text-yellow-400"
+              data-testid="customer-portal-btn"
+            >
+              Area Cliente
+            </button>
 
             <a
               href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
@@ -1547,13 +1565,46 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 transition={{ delay: 0.2 }}
                 className="mx-auto mt-4 max-w-2xl text-lg text-zinc-400"
               >
-                Planos mensais de manutencao e suporte tecnico para empresas e condominios.
+                Planos de manutencao e suporte tecnico para empresas e condominios.
                 Previna avarias, reduza custos e tenha resposta prioritaria.
               </motion.p>
+              
+              {/* Billing Cycle Toggle */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.25 }}
+                className="mt-8 flex items-center justify-center gap-4"
+              >
+                <button
+                  onClick={() => setBillingCycle("monthly")}
+                  className={`rounded-xl px-6 py-3 font-semibold transition ${
+                    billingCycle === "monthly"
+                      ? "bg-yellow-400 text-zinc-950"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                  }`}
+                >
+                  Mensal
+                </button>
+                <button
+                  onClick={() => setBillingCycle("annual")}
+                  className={`relative rounded-xl px-6 py-3 font-semibold transition ${
+                    billingCycle === "annual"
+                      ? "bg-yellow-400 text-zinc-950"
+                      : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                  }`}
+                >
+                  Anual
+                  <span className="absolute -right-2 -top-2 rounded-full bg-green-500 px-2 py-0.5 text-xs font-bold text-white">
+                    -2 meses
+                  </span>
+                </button>
+              </motion.div>
             </div>
 
             {/* Pricing Cards */}
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="mt-12 grid gap-6 lg:grid-cols-3">
               {/* Plan: Essencial */}
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -1568,8 +1619,18 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 </div>
                 
                 <div className="mb-6">
-                  <span className="text-4xl font-black text-white">349</span>
-                  <span className="text-xl text-zinc-400">EUR/mes</span>
+                  {billingCycle === "monthly" ? (
+                    <>
+                      <span className="text-4xl font-black text-white">349</span>
+                      <span className="text-xl text-zinc-400">EUR/mes</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-black text-white">3.490</span>
+                      <span className="text-xl text-zinc-400">EUR/ano</span>
+                      <p className="mt-1 text-sm text-green-400">Poupa 698 EUR (2 meses gratis)</p>
+                    </>
+                  )}
                 </div>
                 
                 <ul className="mb-8 space-y-3">
@@ -1597,9 +1658,10 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                   onClick={() => {
                     setSelectedPlan({
                       id: "essencial",
-                      lookup_key: "essencial_monthly",
+                      lookup_key: billingCycle === "monthly" ? "essencial_monthly" : "essencial_annual",
                       name: "Essencial",
-                      price: 349
+                      price: billingCycle === "monthly" ? 349 : 3490,
+                      billing_cycle: billingCycle
                     });
                     setShowSubscriptionModal(true);
                   }}
@@ -1624,8 +1686,18 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 </div>
                 
                 <div className="mb-6">
-                  <span className="text-4xl font-black text-white">699</span>
-                  <span className="text-xl text-zinc-400">EUR/mes</span>
+                  {billingCycle === "monthly" ? (
+                    <>
+                      <span className="text-4xl font-black text-white">699</span>
+                      <span className="text-xl text-zinc-400">EUR/mes</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-black text-white">6.990</span>
+                      <span className="text-xl text-zinc-400">EUR/ano</span>
+                      <p className="mt-1 text-sm text-green-400">Poupa 1.398 EUR (2 meses gratis)</p>
+                    </>
+                  )}
                 </div>
                 
                 <ul className="mb-8 space-y-3">
@@ -1653,9 +1725,10 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                   onClick={() => {
                     setSelectedPlan({
                       id: "preventivo",
-                      lookup_key: "preventivo_monthly",
+                      lookup_key: billingCycle === "monthly" ? "preventivo_monthly" : "preventivo_annual",
                       name: "Preventivo",
-                      price: 699
+                      price: billingCycle === "monthly" ? 699 : 6990,
+                      billing_cycle: billingCycle
                     });
                     setShowSubscriptionModal(true);
                   }}
@@ -1687,8 +1760,18 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 </div>
                 
                 <div className="mb-6">
-                  <span className="text-4xl font-black text-yellow-400">1.290</span>
-                  <span className="text-xl text-zinc-400">EUR/mes</span>
+                  {billingCycle === "monthly" ? (
+                    <>
+                      <span className="text-4xl font-black text-yellow-400">1.290</span>
+                      <span className="text-xl text-zinc-400">EUR/mes</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-4xl font-black text-yellow-400">12.900</span>
+                      <span className="text-xl text-zinc-400">EUR/ano</span>
+                      <p className="mt-1 text-sm text-green-400">Poupa 2.580 EUR (2 meses gratis)</p>
+                    </>
+                  )}
                 </div>
                 
                 <ul className="mb-8 space-y-3">
@@ -1717,9 +1800,10 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                   onClick={() => {
                     setSelectedPlan({
                       id: "total",
-                      lookup_key: "total_monthly",
+                      lookup_key: billingCycle === "monthly" ? "total_monthly" : "total_annual",
                       name: "Total",
-                      price: 1290
+                      price: billingCycle === "monthly" ? 1290 : 12900,
+                      billing_cycle: billingCycle
                     });
                     setShowSubscriptionModal(true);
                   }}
@@ -2354,13 +2438,16 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-semibold text-white">Obelisco Care - {selectedPlan.name}</p>
-                  <p className="text-sm text-zinc-400">Subscricao mensal</p>
+                  <p className="text-sm text-zinc-400">Subscricao {selectedPlan.billing_cycle === "annual" ? "anual" : "mensal"}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-yellow-400">{selectedPlan.price}EUR</p>
-                  <p className="text-xs text-zinc-400">/mes</p>
+                  <p className="text-2xl font-bold text-yellow-400">{selectedPlan.price.toLocaleString()}EUR</p>
+                  <p className="text-xs text-zinc-400">/{selectedPlan.billing_cycle === "annual" ? "ano" : "mes"}</p>
                 </div>
               </div>
+              {selectedPlan.billing_cycle === "annual" && (
+                <p className="mt-2 text-sm text-green-400">2 meses gratis incluidos!</p>
+              )}
             </div>
 
             {subscriptionError && (
@@ -2461,7 +2548,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 ) : (
                   <span className="flex items-center justify-center gap-2">
                     <CreditCard className="h-5 w-5" />
-                    Pagar {selectedPlan.price}EUR/mes
+                    Pagar {selectedPlan.price.toLocaleString()}EUR/{selectedPlan.billing_cycle === "annual" ? "ano" : "mes"}
                   </span>
                 )}
               </button>
@@ -2470,6 +2557,351 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 Pode cancelar a qualquer momento. Pagamento seguro pelo Stripe.
               </p>
             </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Customer Portal Modal */}
+      {showCustomerPortal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="relative max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-900 p-6"
+          >
+            <button
+              onClick={() => {
+                setShowCustomerPortal(false);
+                setCustomerSubscriptions([]);
+                setCustomerInterventions([]);
+                setSelectedSubscription(null);
+                setShowInterventionForm(false);
+              }}
+              className="absolute right-4 top-4 rounded-full p-2 text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            <div className="mb-6 flex items-center gap-3">
+              <Users className="h-6 w-6 text-yellow-400" />
+              <div>
+                <h2 className="text-xl font-bold text-white">Area de Cliente</h2>
+                <p className="text-sm text-zinc-400">Aceda as suas subscricoes e pedidos</p>
+              </div>
+            </div>
+
+            {!selectedSubscription ? (
+              <>
+                {/* Email Login */}
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setPortalLoading(true);
+                    const email = e.target.portal_email.value;
+                    setPortalEmail(email);
+
+                    try {
+                      const [subsRes, intRes] = await Promise.all([
+                        fetch(`${BACKEND_URL}/api/customer/subscriptions?email=${encodeURIComponent(email)}`),
+                        fetch(`${BACKEND_URL}/api/customer/interventions?email=${encodeURIComponent(email)}`)
+                      ]);
+                      
+                      const subsData = await subsRes.json();
+                      const intData = await intRes.json();
+                      
+                      setCustomerSubscriptions(subsData.subscriptions || []);
+                      setCustomerInterventions(intData.interventions || []);
+                    } catch (err) {
+                      console.error("Error fetching data:", err);
+                    }
+                    setPortalLoading(false);
+                  }}
+                  className="mb-6"
+                >
+                  <label className="mb-1.5 block text-sm font-medium text-zinc-300">Email da subscricao</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="email"
+                      name="portal_email"
+                      required
+                      defaultValue={portalEmail}
+                      className="flex-1 rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                      placeholder="email@exemplo.pt"
+                      data-testid="portal-email-input"
+                    />
+                    <button
+                      type="submit"
+                      disabled={portalLoading}
+                      className="rounded-xl bg-yellow-400 px-6 py-3 font-semibold text-zinc-950 hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {portalLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "Aceder"}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Subscriptions List */}
+                {customerSubscriptions.length > 0 ? (
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-white">As suas subscricoes</h3>
+                    {customerSubscriptions.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="cursor-pointer rounded-2xl border border-zinc-800 bg-zinc-950 p-4 transition hover:border-yellow-400"
+                        onClick={() => setSelectedSubscription(sub)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold text-white">Plano {sub.plan_name}</p>
+                            <p className="text-sm text-zinc-400">{sub.amount}EUR/{sub.billing_cycle === "annual" ? "ano" : "mes"}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                              sub.status === "active" ? "bg-green-500/20 text-green-400" : "bg-zinc-700 text-zinc-400"
+                            }`}>
+                              {sub.status === "active" ? "Ativo" : sub.status}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center gap-4">
+                          <div className="flex-1 rounded-full bg-zinc-800 h-2">
+                            <div
+                              className="h-2 rounded-full bg-yellow-400"
+                              style={{ width: `${Math.min(100, (sub.hours_used / sub.hours_included) * 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-sm text-zinc-400">
+                            {sub.hours_used || 0}h / {sub.hours_included}h
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : portalEmail && !portalLoading ? (
+                  <div className="rounded-2xl border border-zinc-800 bg-zinc-950 p-6 text-center">
+                    <p className="text-zinc-400">Nenhuma subscricao encontrada para este email.</p>
+                    <button
+                      onClick={() => {
+                        setShowCustomerPortal(false);
+                        document.getElementById("obelisco-care")?.scrollIntoView({ behavior: "smooth" });
+                      }}
+                      className="mt-4 rounded-xl bg-yellow-400 px-6 py-2 font-semibold text-zinc-950"
+                    >
+                      Ver Planos Disponiveis
+                    </button>
+                  </div>
+                ) : null}
+
+                {/* Recent Interventions */}
+                {customerInterventions.length > 0 && (
+                  <div className="mt-6 space-y-3">
+                    <h3 className="font-semibold text-white">Pedidos de intervencao recentes</h3>
+                    {customerInterventions.slice(0, 3).map((int) => (
+                      <div key={int.id} className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-white">{int.description.slice(0, 50)}...</p>
+                          <span className={`rounded-full px-2 py-0.5 text-xs ${
+                            int.status === "completed" ? "bg-green-500/20 text-green-400" :
+                            int.status === "pending" ? "bg-yellow-500/20 text-yellow-400" :
+                            "bg-zinc-700 text-zinc-400"
+                          }`}>
+                            {int.status === "pending" ? "Pendente" : int.status === "completed" ? "Concluido" : int.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Subscription Details */}
+                <button
+                  onClick={() => {
+                    setSelectedSubscription(null);
+                    setShowInterventionForm(false);
+                  }}
+                  className="mb-4 flex items-center gap-2 text-sm text-zinc-400 hover:text-white"
+                >
+                  <ArrowLeft className="h-4 w-4" /> Voltar
+                </button>
+
+                <div className="rounded-2xl border border-yellow-500/30 bg-yellow-500/10 p-4 mb-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-lg font-bold text-white">Plano {selectedSubscription.plan_name}</p>
+                      <p className="text-sm text-zinc-400">{selectedSubscription.customer_email}</p>
+                    </div>
+                    <span className="rounded-full bg-green-500/20 px-3 py-1 text-sm font-medium text-green-400">
+                      Ativo
+                    </span>
+                  </div>
+                </div>
+
+                {/* Hours Usage */}
+                <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
+                  <h4 className="mb-3 font-semibold text-white">Horas deste periodo</h4>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="h-4 rounded-full bg-zinc-800">
+                        <div
+                          className="h-4 rounded-full bg-gradient-to-r from-yellow-400 to-yellow-500"
+                          style={{ width: `${Math.min(100, ((selectedSubscription.hours_used || 0) / selectedSubscription.hours_included) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-yellow-400">
+                        {(selectedSubscription.hours_included - (selectedSubscription.hours_used || 0)).toFixed(1)}h
+                      </p>
+                      <p className="text-xs text-zinc-500">disponiveis de {selectedSubscription.hours_included}h</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <button
+                    onClick={() => setShowInterventionForm(true)}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-yellow-400 px-4 py-3 font-semibold text-zinc-950 hover:bg-yellow-300"
+                    data-testid="request-intervention-btn"
+                  >
+                    <Wrench className="h-5 w-5" />
+                    Pedir Intervencao
+                  </button>
+                  
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`${BACKEND_URL}/api/customer/portal-session?email=${encodeURIComponent(selectedSubscription.customer_email)}&return_url=${encodeURIComponent(window.location.href)}`, {
+                          method: "POST"
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                          window.location.href = data.url;
+                        }
+                      } catch (err) {
+                        console.error("Portal error:", err);
+                      }
+                    }}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 px-4 py-3 font-semibold text-white hover:border-yellow-400"
+                  >
+                    <CreditCard className="h-5 w-5" />
+                    Gerir Pagamento
+                  </button>
+                </div>
+
+                {/* Intervention Form */}
+                {showInterventionForm && (
+                  <form
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setPortalLoading(true);
+                      
+                      const formData = new FormData(e.target);
+                      
+                      try {
+                        const res = await fetch(`${BACKEND_URL}/api/customer/intervention`, {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            subscription_id: selectedSubscription.id,
+                            customer_email: selectedSubscription.customer_email,
+                            description: formData.get("int_description"),
+                            urgency: formData.get("int_urgency"),
+                            preferred_date: formData.get("int_date"),
+                            preferred_time: formData.get("int_time"),
+                            address: formData.get("int_address")
+                          })
+                        });
+                        
+                        const data = await res.json();
+                        
+                        if (data.success) {
+                          alert("Pedido de intervencao enviado com sucesso! Entraremos em contacto brevemente.");
+                          setShowInterventionForm(false);
+                        } else {
+                          alert(data.detail || "Erro ao enviar pedido");
+                        }
+                      } catch (err) {
+                        console.error("Error:", err);
+                        alert("Erro ao enviar pedido");
+                      }
+                      setPortalLoading(false);
+                    }}
+                    className="mt-6 space-y-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4"
+                  >
+                    <h4 className="font-semibold text-white">Novo Pedido de Intervencao</h4>
+                    
+                    <div>
+                      <label className="mb-1 block text-sm text-zinc-400">Descricao do problema *</label>
+                      <textarea
+                        name="int_description"
+                        required
+                        rows={3}
+                        className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                        placeholder="Descreva o problema ou servico necessario..."
+                      />
+                    </div>
+                    
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm text-zinc-400">Urgencia</label>
+                        <select
+                          name="int_urgency"
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white focus:border-yellow-400 focus:outline-none"
+                        >
+                          <option value="normal">Normal (ate 48h)</option>
+                          <option value="urgent">Urgente (ate 8h)</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm text-zinc-400">Data preferida</label>
+                        <input
+                          type="date"
+                          name="int_date"
+                          min={new Date(Date.now() + 86400000).toISOString().split("T")[0]}
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white focus:border-yellow-400 focus:outline-none"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-sm text-zinc-400">Hora preferida</label>
+                        <select
+                          name="int_time"
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white focus:border-yellow-400 focus:outline-none"
+                        >
+                          <option value="">Qualquer hora</option>
+                          <option value="08:00">08:00</option>
+                          <option value="10:00">10:00</option>
+                          <option value="14:00">14:00</option>
+                          <option value="16:00">16:00</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm text-zinc-400">Morada</label>
+                        <input
+                          type="text"
+                          name="int_address"
+                          className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                          placeholder="Morada do servico"
+                        />
+                      </div>
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={portalLoading}
+                      className="w-full rounded-xl bg-yellow-400 py-3 font-semibold text-zinc-950 hover:bg-yellow-300 disabled:opacity-50"
+                    >
+                      {portalLoading ? "A enviar..." : "Enviar Pedido"}
+                    </button>
+                  </form>
+                )}
+              </>
+            )}
           </motion.div>
         </div>
       )}

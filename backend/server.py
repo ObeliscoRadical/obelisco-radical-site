@@ -5,14 +5,16 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
+import asyncio
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import httpx
 import stripe
+import resend
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
@@ -30,6 +32,13 @@ db = client[os.environ['DB_NAME']]
 stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
+
+# Resend Email Configuration
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+ADMIN_EMAIL = 'obeliscoradical@gmail.com'
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
 
 # Emergent LLM Key for AI Assistant
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
@@ -102,6 +111,62 @@ class PaymentRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# Subscription Models
+class SubscriptionRecord(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    stripe_subscription_id: Optional[str] = None
+    stripe_customer_id: Optional[str] = None
+    customer_email: str
+    customer_name: str
+    customer_phone: Optional[str] = None
+    plan_id: str
+    plan_name: str
+    billing_cycle: str = "monthly"  # monthly or annual
+    amount: float
+    currency: str = "EUR"
+    status: str = "active"
+    hours_included: int = 0
+    hours_used: float = 0.0
+    current_period_start: Optional[datetime] = None
+    current_period_end: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Intervention Request Model
+class InterventionRequest(BaseModel):
+    subscription_id: str
+    customer_email: str
+    description: str
+    urgency: str = "normal"  # normal, urgent
+    preferred_date: Optional[str] = None
+    preferred_time: Optional[str] = None
+    address: Optional[str] = None
+
+class InterventionRecord(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subscription_id: str
+    customer_email: str
+    customer_name: str
+    description: str
+    urgency: str = "normal"
+    preferred_date: Optional[str] = None
+    preferred_time: Optional[str] = None
+    address: Optional[str] = None
+    hours_estimated: float = 1.0
+    hours_used: float = 0.0
+    status: str = "pending"  # pending, scheduled, in_progress, completed, cancelled
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Plan hours mapping
+PLAN_HOURS = {
+    "essencial": 3,
+    "preventivo": 6,
+    "total": 12
+}
+
 # Basic routes
 @api_router.get("/")
 async def root():
@@ -123,6 +188,130 @@ async def get_status_checks():
         if isinstance(check['timestamp'], str):
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     return status_checks
+
+# ==================== EMAIL FUNCTIONS ====================
+
+async def send_email_async(to_email: str, subject: str, html_content: str):
+    """Send email using Resend (async wrapper)"""
+    if not RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not configured, skipping email")
+        return None
+    
+    try:
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content
+        }
+        result = await asyncio.to_thread(resend.Emails.send, params)
+        logger.info(f"Email sent to {to_email}: {result.get('id')}")
+        return result
+    except Exception as e:
+        logger.error(f"Failed to send email to {to_email}: {str(e)}")
+        return None
+
+async def send_welcome_email(customer_name: str, customer_email: str, plan_name: str, amount: float, billing_cycle: str):
+    """Send welcome email to new subscriber"""
+    cycle_text = "mensal" if billing_cycle == "monthly" else "anual"
+    html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #facc15; margin: 0;">Obelisco Care</h1>
+            <p style="color: #a1a1aa; margin-top: 5px;">Bem-vindo ao seu plano de manutencao</p>
+        </div>
+        
+        <p style="color: #fff;">Ola <strong>{customer_name}</strong>,</p>
+        
+        <p style="color: #d4d4d8;">Obrigado por subscrever o plano <strong style="color: #facc15;">{plan_name}</strong>!</p>
+        
+        <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; color: #a1a1aa;">Detalhes da subscricao:</p>
+            <p style="margin: 10px 0 0; font-size: 24px; color: #facc15; font-weight: bold;">{amount:.0f} EUR/{cycle_text}</p>
+        </div>
+        
+        <p style="color: #d4d4d8;">Agora pode aceder ao seu painel de cliente para:</p>
+        <ul style="color: #d4d4d8;">
+            <li>Ver as suas horas disponiveis</li>
+            <li>Pedir intervencoes tecnicas</li>
+            <li>Consultar o historico de pagamentos</li>
+        </ul>
+        
+        <p style="color: #d4d4d8;">Qualquer duvida, contacte-nos:</p>
+        <p style="color: #facc15;">WhatsApp: +351 911 132 401</p>
+        <p style="color: #facc15;">Email: obeliscoradical@gmail.com</p>
+        
+        <p style="color: #71717a; font-size: 12px; margin-top: 30px; text-align: center;">
+            Obelisco Radical Unipessoal Lda - Servicos Eletricos na Grande Lisboa
+        </p>
+    </div>
+    """
+    await send_email_async(customer_email, f"Bem-vindo ao Obelisco Care - Plano {plan_name}", html)
+
+async def send_admin_notification(notification_type: str, customer_name: str, customer_email: str, details: dict):
+    """Send notification to admin about new subscription/purchase"""
+    if notification_type == "subscription":
+        subject = f"Nova Subscricao: {details.get('plan_name')} - {customer_name}"
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
+            <h2 style="color: #22c55e;">Nova Subscricao Obelisco Care</h2>
+            
+            <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Cliente:</strong> {customer_name}</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> {customer_email}</p>
+                <p style="margin: 5px 0;"><strong>Telefone:</strong> {details.get('phone', 'N/A')}</p>
+                <p style="margin: 5px 0;"><strong>Plano:</strong> <span style="color: #facc15;">{details.get('plan_name')}</span></p>
+                <p style="margin: 5px 0;"><strong>Valor:</strong> {details.get('amount', 0):.0f} EUR/{details.get('billing_cycle', 'mes')}</p>
+            </div>
+            
+            <p style="color: #71717a; font-size: 12px;">Notificacao automatica do site Obelisco Radical</p>
+        </div>
+        """
+    elif notification_type == "purchase":
+        subject = f"Nova Compra: {details.get('amount', 0):.2f} EUR - {customer_name}"
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
+            <h2 style="color: #22c55e;">Nova Compra no Site</h2>
+            
+            <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Cliente:</strong> {customer_name}</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> {customer_email}</p>
+                <p style="margin: 5px 0;"><strong>Telefone:</strong> {details.get('phone', 'N/A')}</p>
+                <p style="margin: 5px 0;"><strong>Valor:</strong> <span style="color: #facc15;">{details.get('amount', 0):.2f} EUR</span></p>
+                <p style="margin: 5px 0;"><strong>Servicos:</strong></p>
+                <ul style="color: #d4d4d8;">
+                    {"".join([f"<li>{item.get('description', 'Item')}</li>" for item in details.get('items', [])])}
+                </ul>
+            </div>
+            
+            <p style="color: #71717a; font-size: 12px;">Notificacao automatica do site Obelisco Radical</p>
+        </div>
+        """
+    elif notification_type == "intervention":
+        subject = f"Novo Pedido de Intervencao: {customer_name}"
+        html = f"""
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
+            <h2 style="color: #f59e0b;">Novo Pedido de Intervencao</h2>
+            
+            <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
+                <p style="margin: 5px 0;"><strong>Cliente:</strong> {customer_name}</p>
+                <p style="margin: 5px 0;"><strong>Email:</strong> {customer_email}</p>
+                <p style="margin: 5px 0;"><strong>Plano:</strong> {details.get('plan_name', 'N/A')}</p>
+                <p style="margin: 5px 0;"><strong>Urgencia:</strong> <span style="color: {'#ef4444' if details.get('urgency') == 'urgent' else '#22c55e'};">{details.get('urgency', 'normal').upper()}</span></p>
+                <p style="margin: 5px 0;"><strong>Data preferida:</strong> {details.get('preferred_date', 'Nao especificada')}</p>
+                <p style="margin: 5px 0;"><strong>Hora preferida:</strong> {details.get('preferred_time', 'Nao especificada')}</p>
+                <p style="margin: 5px 0;"><strong>Morada:</strong> {details.get('address', 'Nao especificada')}</p>
+                <p style="margin: 5px 0;"><strong>Descricao:</strong></p>
+                <p style="color: #d4d4d8; background: #3f3f46; padding: 10px; border-radius: 8px;">{details.get('description', 'Sem descricao')}</p>
+            </div>
+            
+            <p style="color: #71717a; font-size: 12px;">Notificacao automatica do site Obelisco Radical</p>
+        </div>
+        """
+    else:
+        return
+    
+    await send_email_async(ADMIN_EMAIL, subject, html)
 
 # ==================== STRIPE PAYMENT ENDPOINTS ====================
 
@@ -281,66 +470,72 @@ async def create_subscription_session(request: SubscriptionRequest):
 
 @api_router.get("/stripe/plans")
 async def get_subscription_plans():
-    """Get available subscription plans"""
+    """Get available subscription plans with monthly and annual options"""
     plans = [
         {
             "id": "essencial",
-            "lookup_key": "essencial_monthly",
             "name": "Essencial",
-            "tagline": "Suporte para o dia a dia da sua operação",
-            "price": 349,
+            "tagline": "Suporte para o dia a dia da sua operacao",
+            "hours_included": 3,
+            "pricing": {
+                "monthly": {"lookup_key": "essencial_monthly", "price": 349, "interval": "mes"},
+                "annual": {"lookup_key": "essencial_annual", "price": 3490, "interval": "ano", "savings": 698}
+            },
             "currency": "EUR",
-            "interval": "mês",
             "features": [
-                "Até 3 horas de intervenção técnica/mês",
-                "Deslocação incluída na Grande Lisboa",
-                "Prioridade de resposta: até 48h úteis",
+                "Ate 3 horas de intervencao tecnica/mes",
+                "Deslocacao incluida na Grande Lisboa",
+                "Prioridade de resposta: ate 48h uteis",
                 "1 visita preventiva semestral",
-                "Apoio telefónico e diagnóstico remoto",
+                "Apoio telefonico e diagnostico remoto",
                 "5% de desconto em horas adicionais",
-                "Relatório técnico semestral"
+                "Relatorio tecnico semestral"
             ],
-            "ideal_for": "Ideal para pequenas empresas, lojas e escritórios"
+            "ideal_for": "Ideal para pequenas empresas, lojas e escritorios"
         },
         {
             "id": "preventivo",
-            "lookup_key": "preventivo_monthly",
             "name": "Preventivo",
-            "tagline": "Prevenção que evita custos e paragens",
-            "price": 699,
+            "tagline": "Prevencao que evita custos e paragens",
+            "hours_included": 6,
+            "pricing": {
+                "monthly": {"lookup_key": "preventivo_monthly", "price": 699, "interval": "mes"},
+                "annual": {"lookup_key": "preventivo_annual", "price": 6990, "interval": "ano", "savings": 1398}
+            },
             "currency": "EUR",
-            "interval": "mês",
             "features": [
-                "Até 6 horas de intervenção técnica/mês",
-                "Deslocação incluída na Grande Lisboa",
-                "Prioridade de resposta: até 24h úteis",
+                "Ate 6 horas de intervencao tecnica/mes",
+                "Deslocacao incluida na Grande Lisboa",
+                "Prioridade de resposta: ate 24h uteis",
                 "2 visitas preventivas por ano",
-                "Manutenção preventiva programada",
+                "Manutencao preventiva programada",
                 "10% de desconto em horas adicionais",
-                "Relatório técnico trimestral"
+                "Relatorio tecnico trimestral"
             ],
-            "ideal_for": "Ideal para empresas e edifícios que pretendem reduzir avarias e custos"
+            "ideal_for": "Ideal para empresas e edificios que pretendem reduzir avarias e custos"
         },
         {
             "id": "total",
-            "lookup_key": "total_monthly",
             "name": "Total",
             "tagline": "Cobertura completa, tranquilidade total",
-            "price": 1290,
-            "currency": "EUR",
-            "interval": "mês",
+            "hours_included": 12,
             "popular": True,
+            "pricing": {
+                "monthly": {"lookup_key": "total_monthly", "price": 1290, "interval": "mes"},
+                "annual": {"lookup_key": "total_annual", "price": 12900, "interval": "ano", "savings": 2580}
+            },
+            "currency": "EUR",
             "features": [
-                "Até 12 horas de intervenção técnica/mês",
-                "Deslocação incluída na Grande Lisboa",
-                "Prioridade de resposta: até 8h úteis",
+                "Ate 12 horas de intervencao tecnica/mes",
+                "Deslocacao incluida na Grande Lisboa",
+                "Prioridade de resposta: ate 8h uteis",
                 "2 visitas preventivas trimestrais",
-                "Manutenção preventiva e corretiva",
-                "Consultoria técnica e pequenas melhorias",
+                "Manutencao preventiva e corretiva",
+                "Consultoria tecnica e pequenas melhorias",
                 "15% de desconto em horas adicionais",
-                "Relatório técnico mensal"
+                "Relatorio tecnico mensal"
             ],
-            "ideal_for": "Ideal para empresas, condomínios e operações críticas"
+            "ideal_for": "Ideal para empresas, condominios e operacoes criticas"
         }
     ]
     return {"plans": plans}
@@ -427,18 +622,134 @@ async def stripe_webhook(request: Request):
     if event_type == "checkout.session.completed":
         session_id = obj.get("id")
         payment_status = obj.get("payment_status", "paid")
+        mode = obj.get("mode", "payment")
+        metadata = obj.get("metadata", {})
+        customer_email = obj.get("customer_email", "")
+        customer_name = metadata.get("customer_name", "Cliente")
+        customer_phone = metadata.get("customer_phone", "")
         
-        await db.payments.update_one(
-            {"stripe_session_id": session_id, "payment_status": {"$ne": "paid"}},
+        if mode == "subscription":
+            # Handle subscription checkout completed
+            subscription_id = obj.get("subscription")
+            customer_id = obj.get("customer")
+            plan = metadata.get("plan", "")
+            
+            # Determine plan details
+            plan_id = plan.replace("_monthly", "").replace("_annual", "")
+            billing_cycle = "annual" if "_annual" in plan else "monthly"
+            hours = PLAN_HOURS.get(plan_id, 3)
+            
+            # Get subscription details from Stripe
+            try:
+                stripe_sub = stripe.Subscription.retrieve(subscription_id)
+                current_period_start = datetime.fromtimestamp(stripe_sub.current_period_start, tz=timezone.utc)
+                current_period_end = datetime.fromtimestamp(stripe_sub.current_period_end, tz=timezone.utc)
+                amount = stripe_sub.plan.amount / 100
+            except Exception:
+                current_period_start = datetime.now(timezone.utc)
+                current_period_end = current_period_start + timedelta(days=30 if billing_cycle == "monthly" else 365)
+                amount = 0
+            
+            # Create/update subscription record
+            sub_record = {
+                "id": str(uuid.uuid4()),
+                "stripe_subscription_id": subscription_id,
+                "stripe_customer_id": customer_id,
+                "customer_email": customer_email,
+                "customer_name": customer_name,
+                "customer_phone": customer_phone,
+                "plan_id": plan_id,
+                "plan_name": plan_id.capitalize(),
+                "billing_cycle": billing_cycle,
+                "amount": amount,
+                "currency": "EUR",
+                "status": "active",
+                "hours_included": hours,
+                "hours_used": 0.0,
+                "current_period_start": current_period_start.isoformat(),
+                "current_period_end": current_period_end.isoformat(),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            
+            await db.subscriptions.update_one(
+                {"stripe_subscription_id": subscription_id},
+                {"$set": sub_record},
+                upsert=True
+            )
+            
+            logger.info(f"Subscription created: {subscription_id} for {customer_email}")
+            
+            # Send welcome email and admin notification
+            await send_welcome_email(customer_name, customer_email, plan_id.capitalize(), amount, billing_cycle)
+            await send_admin_notification("subscription", customer_name, customer_email, {
+                "plan_name": plan_id.capitalize(),
+                "amount": amount,
+                "billing_cycle": "mes" if billing_cycle == "monthly" else "ano",
+                "phone": customer_phone
+            })
+        else:
+            # Handle one-time payment
+            await db.payments.update_one(
+                {"stripe_session_id": session_id, "payment_status": {"$ne": "paid"}},
+                {"$set": {
+                    "status": "completed",
+                    "payment_status": payment_status,
+                    "stripe_payment_intent_id": obj.get("payment_intent"),
+                    "payment_method": "card",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            
+            # Get payment record for notification
+            payment_record = await db.payments.find_one({"stripe_session_id": session_id}, {"_id": 0})
+            if payment_record:
+                await send_admin_notification("purchase", customer_name, customer_email, {
+                    "amount": payment_record.get("amount", 0),
+                    "phone": customer_phone,
+                    "items": payment_record.get("items", [])
+                })
+            
+            logger.info(f"Payment completed for session: {session_id}")
+        
+    elif event_type == "customer.subscription.updated":
+        subscription_id = obj.get("id")
+        status = obj.get("status")
+        
+        current_period_start = datetime.fromtimestamp(obj.get("current_period_start", 0), tz=timezone.utc)
+        current_period_end = datetime.fromtimestamp(obj.get("current_period_end", 0), tz=timezone.utc)
+        
+        # Reset hours at period start
+        update_data = {
+            "status": status,
+            "current_period_start": current_period_start.isoformat(),
+            "current_period_end": current_period_end.isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        # Check if it's a new billing period (reset hours)
+        existing = await db.subscriptions.find_one({"stripe_subscription_id": subscription_id}, {"_id": 0})
+        if existing:
+            old_period_start = existing.get("current_period_start", "")
+            if old_period_start != current_period_start.isoformat():
+                update_data["hours_used"] = 0.0
+                logger.info(f"Reset hours for subscription: {subscription_id}")
+        
+        await db.subscriptions.update_one(
+            {"stripe_subscription_id": subscription_id},
+            {"$set": update_data}
+        )
+        
+    elif event_type == "customer.subscription.deleted":
+        subscription_id = obj.get("id")
+        await db.subscriptions.update_one(
+            {"stripe_subscription_id": subscription_id},
             {"$set": {
-                "status": "completed",
-                "payment_status": payment_status,
-                "stripe_payment_intent_id": obj.get("payment_intent"),
-                "payment_method": "card",
+                "status": "cancelled",
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }}
         )
-        logger.info(f"Payment completed for session: {session_id}")
+        logger.info(f"Subscription cancelled: {subscription_id}")
         
     elif event_type == "checkout.session.expired":
         session_id = obj.get("id")
@@ -469,6 +780,179 @@ async def stripe_webhook(request: Request):
     )
     
     return {"status": "ok"}
+
+# ==================== CUSTOMER PORTAL ENDPOINTS ====================
+
+@api_router.get("/customer/subscriptions")
+async def get_customer_subscriptions(email: str):
+    """Get all subscriptions for a customer by email"""
+    subscriptions = await db.subscriptions.find(
+        {"customer_email": email, "status": {"$in": ["active", "past_due", "trialing"]}},
+        {"_id": 0}
+    ).to_list(100)
+    
+    return {"subscriptions": subscriptions}
+
+@api_router.get("/customer/subscription/{subscription_id}")
+async def get_subscription_details(subscription_id: str):
+    """Get detailed subscription info including hours used/available"""
+    sub = await db.subscriptions.find_one(
+        {"$or": [{"id": subscription_id}, {"stripe_subscription_id": subscription_id}]},
+        {"_id": 0}
+    )
+    
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    # Get interventions for this subscription
+    interventions = await db.interventions.find(
+        {"subscription_id": sub.get("id")},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    hours_included = sub.get("hours_included", 0)
+    hours_used = sub.get("hours_used", 0)
+    hours_available = max(0, hours_included - hours_used)
+    
+    return {
+        "subscription": sub,
+        "hours": {
+            "included": hours_included,
+            "used": hours_used,
+            "available": hours_available
+        },
+        "interventions": interventions
+    }
+
+@api_router.post("/customer/portal-session")
+async def create_portal_session(email: str, return_url: str):
+    """Create Stripe Customer Portal session for managing subscription"""
+    try:
+        # Find customer in our DB
+        sub = await db.subscriptions.find_one(
+            {"customer_email": email, "status": "active"},
+            {"_id": 0}
+        )
+        
+        if not sub or not sub.get("stripe_customer_id"):
+            raise HTTPException(status_code=404, detail="Nenhuma subscricao ativa encontrada")
+        
+        # Create portal session
+        session = stripe.billing_portal.Session.create(
+            customer=sub["stripe_customer_id"],
+            return_url=return_url
+        )
+        
+        return {"url": session.url}
+    
+    except stripe.error.StripeError as e:
+        logger.error(f"Stripe portal error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+
+@api_router.post("/customer/intervention")
+async def request_intervention(request: InterventionRequest):
+    """Create a new intervention request"""
+    
+    # Find subscription
+    sub = await db.subscriptions.find_one(
+        {"$or": [{"id": request.subscription_id}, {"stripe_subscription_id": request.subscription_id}]},
+        {"_id": 0}
+    )
+    
+    if not sub:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    if sub.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Subscricao nao esta ativa")
+    
+    # Check available hours
+    hours_available = sub.get("hours_included", 0) - sub.get("hours_used", 0)
+    if hours_available <= 0:
+        raise HTTPException(status_code=400, detail="Sem horas disponiveis. Contacte-nos para horas adicionais.")
+    
+    # Create intervention record
+    intervention = InterventionRecord(
+        subscription_id=sub.get("id"),
+        customer_email=request.customer_email,
+        customer_name=sub.get("customer_name", ""),
+        description=request.description,
+        urgency=request.urgency,
+        preferred_date=request.preferred_date,
+        preferred_time=request.preferred_time,
+        address=request.address
+    )
+    
+    doc = intervention.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    doc["updated_at"] = doc["updated_at"].isoformat()
+    
+    await db.interventions.insert_one(doc)
+    
+    # Send admin notification
+    await send_admin_notification("intervention", sub.get("customer_name", "Cliente"), request.customer_email, {
+        "plan_name": sub.get("plan_name", ""),
+        "urgency": request.urgency,
+        "preferred_date": request.preferred_date,
+        "preferred_time": request.preferred_time,
+        "address": request.address,
+        "description": request.description
+    })
+    
+    logger.info(f"Intervention request created: {intervention.id}")
+    
+    return {
+        "success": True,
+        "intervention_id": intervention.id,
+        "message": "Pedido de intervencao criado com sucesso. Entraremos em contacto brevemente."
+    }
+
+@api_router.get("/customer/interventions")
+async def get_customer_interventions(email: str):
+    """Get all interventions for a customer"""
+    interventions = await db.interventions.find(
+        {"customer_email": email},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return {"interventions": interventions}
+
+@api_router.get("/customer/payments")
+async def get_customer_payments(email: str):
+    """Get payment history for a customer"""
+    # Get one-time payments
+    payments = await db.payments.find(
+        {"customer_email": email, "payment_status": "paid"},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    
+    return {"payments": payments}
+
+# Admin endpoint to update intervention hours
+@api_router.post("/admin/intervention/{intervention_id}/complete")
+async def complete_intervention(intervention_id: str, hours_used: float):
+    """Mark intervention as completed and update hours used"""
+    
+    intervention = await db.interventions.find_one({"id": intervention_id}, {"_id": 0})
+    if not intervention:
+        raise HTTPException(status_code=404, detail="Intervencao nao encontrada")
+    
+    # Update intervention
+    await db.interventions.update_one(
+        {"id": intervention_id},
+        {"$set": {
+            "status": "completed",
+            "hours_used": hours_used,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Update subscription hours
+    await db.subscriptions.update_one(
+        {"id": intervention.get("subscription_id")},
+        {"$inc": {"hours_used": hours_used}}
+    )
+    
+    return {"success": True, "message": f"Intervencao concluida com {hours_used} horas utilizadas"}
 
 @api_router.get("/checkout/payment-methods")
 async def get_payment_methods():

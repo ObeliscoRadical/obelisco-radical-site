@@ -1,0 +1,59 @@
+{
+  "summary": "Update mode testing complete - Verified new features: 1) Monthly/Annual billing toggle with 2 months discount, 2) Annual subscription sessions, 3) Customer portal with subscriptions/interventions endpoints, 4) Area Cliente navigation button",
+  "mode": "update",
+  "baseline_commit": "72a831b1dffe33d55069a9a3dfaa02247a03562a",
+  "head_commit": "9b9eececdeca9a893935029b8a4eae7b7157cb3d",
+  "specs_created": [
+    "/app/tests/e2e/customer-portal.spec.ts"
+  ],
+  "specs_updated": [
+    "/app/tests/e2e/obelisco-care.spec.ts",
+    "/app/tests/e2e/golden-path.spec.ts",
+    "/app/backend/tests/test_stripe_integration.py"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_stripe_integration.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "regression_results": {
+    "total_specs": 36,
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/obelisco-care.spec.ts",
+    "/app/tests/e2e/customer-portal.spec.ts",
+    "/app/tests/e2e/golden-path.spec.ts",
+    "/app/backend/tests/test_stripe_integration.py"
+  ],
+  "test_results": {
+    "backend": "100% (34/34 tests passed)",
+    "frontend": "100% (36/36 tests passed)"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All new features verified: 1) Billing cycle toggle (Mensal/Anual) works correctly with -2 meses discount badge, 2) Annual prices show correctly (3,490/6,990/12,900 EUR) with savings text, 3) Subscription modal shows correct price based on billing cycle selection, 4) Customer portal (Area Cliente) opens modal with email input, shows subscriptions/interventions, 5) All backend APIs working: /api/stripe/plans (with monthly/annual pricing structure), /api/stripe/create-subscription-session (supports annual plans), /api/customer/subscriptions, /api/customer/interventions, /api/customer/portal-session, /api/customer/payments. Note: RESEND_API_KEY is empty so emails are skipped in test mode.",
+  "backend_tests_summary": {
+    "TestStripeConfig": "2 tests - Stripe publishable key endpoint working",
+    "TestPaymentMethods": "2 tests - Card payment method available",
+    "TestSubscriptionPlans": "7 tests - Monthly and annual pricing verified for all 3 plans",
+    "TestSubscriptionSession": "7 tests - Monthly and annual subscription sessions working",
+    "TestCustomerPortal": "4 tests - Subscriptions, interventions, portal session, payments endpoints working",
+    "TestStripeCheckoutSession": "5 tests - Session creation with items, metadata, custom order_id",
+    "TestStripeSessionStatus": "2 tests - Session status retrieval working",
+    "TestPaymentsEndpoints": "3 tests - Payment listing and details working",
+    "TestAPIBasics": "2 tests - Root and status endpoints working"
+  },
+  "frontend_tests_summary": {
+    "obelisco-care.spec.ts": "14 tests - Billing toggle, monthly/annual prices, subscription modals, form validation",
+    "customer-portal.spec.ts": "6 tests - Area Cliente button, modal, email input, no subscriptions message",
+    "payment-methods.spec.ts": "5 tests - Stripe-only payment, card brands, redirect",
+    "core-flows.spec.ts": "5 tests - Homepage, navigation, mobile menu, WhatsApp buttons, cart",
+    "golden-path.spec.ts": "6 tests - Complete user journey, subscription journey, API verification"
+  }
+}

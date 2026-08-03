@@ -63,7 +63,7 @@ class TestPaymentMethods:
 
 
 class TestSubscriptionPlans:
-    """Test subscription plans endpoint"""
+    """Test subscription plans endpoint with monthly and annual pricing"""
     
     def test_get_subscription_plans_returns_three_plans(self):
         """GET /api/stripe/plans should return 3 subscription plans"""
@@ -81,41 +81,77 @@ class TestSubscriptionPlans:
         assert "preventivo" in plan_ids
         assert "total" in plan_ids
     
-    def test_essencial_plan_details(self):
-        """Essencial plan should have correct price and features"""
+    def test_essencial_plan_details_monthly(self):
+        """Essencial plan should have correct monthly price and features"""
         response = requests.get(f"{BASE_URL}/api/stripe/plans")
         data = response.json()
         
         essencial = next((p for p in data["plans"] if p["id"] == "essencial"), None)
         assert essencial is not None
-        assert essencial["price"] == 349
+        assert essencial["pricing"]["monthly"]["price"] == 349
+        assert essencial["pricing"]["monthly"]["lookup_key"] == "essencial_monthly"
         assert essencial["currency"] == "EUR"
-        assert essencial["lookup_key"] == "essencial_monthly"
         assert "features" in essencial
         assert len(essencial["features"]) > 0
+        assert essencial["hours_included"] == 3
     
-    def test_preventivo_plan_details(self):
-        """Preventivo plan should have correct price and features"""
+    def test_essencial_plan_details_annual(self):
+        """Essencial plan should have correct annual price with 2 months discount"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
+        data = response.json()
+        
+        essencial = next((p for p in data["plans"] if p["id"] == "essencial"), None)
+        assert essencial is not None
+        assert essencial["pricing"]["annual"]["price"] == 3490  # 349 * 10 months
+        assert essencial["pricing"]["annual"]["lookup_key"] == "essencial_annual"
+        assert essencial["pricing"]["annual"]["savings"] == 698  # 2 months savings
+    
+    def test_preventivo_plan_details_monthly(self):
+        """Preventivo plan should have correct monthly price and features"""
         response = requests.get(f"{BASE_URL}/api/stripe/plans")
         data = response.json()
         
         preventivo = next((p for p in data["plans"] if p["id"] == "preventivo"), None)
         assert preventivo is not None
-        assert preventivo["price"] == 699
+        assert preventivo["pricing"]["monthly"]["price"] == 699
+        assert preventivo["pricing"]["monthly"]["lookup_key"] == "preventivo_monthly"
         assert preventivo["currency"] == "EUR"
-        assert preventivo["lookup_key"] == "preventivo_monthly"
+        assert preventivo["hours_included"] == 6
     
-    def test_total_plan_details(self):
-        """Total plan should have correct price and be marked as popular"""
+    def test_preventivo_plan_details_annual(self):
+        """Preventivo plan should have correct annual price with 2 months discount"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
+        data = response.json()
+        
+        preventivo = next((p for p in data["plans"] if p["id"] == "preventivo"), None)
+        assert preventivo is not None
+        assert preventivo["pricing"]["annual"]["price"] == 6990  # 699 * 10 months
+        assert preventivo["pricing"]["annual"]["lookup_key"] == "preventivo_annual"
+        assert preventivo["pricing"]["annual"]["savings"] == 1398  # 2 months savings
+    
+    def test_total_plan_details_monthly(self):
+        """Total plan should have correct monthly price and be marked as popular"""
         response = requests.get(f"{BASE_URL}/api/stripe/plans")
         data = response.json()
         
         total = next((p for p in data["plans"] if p["id"] == "total"), None)
         assert total is not None
-        assert total["price"] == 1290
+        assert total["pricing"]["monthly"]["price"] == 1290
+        assert total["pricing"]["monthly"]["lookup_key"] == "total_monthly"
         assert total["currency"] == "EUR"
-        assert total["lookup_key"] == "total_monthly"
         assert total.get("popular") is True
+        assert total["hours_included"] == 12
+    
+    def test_total_plan_details_annual(self):
+        """Total plan should have correct annual price with 2 months discount"""
+        response = requests.get(f"{BASE_URL}/api/stripe/plans")
+        data = response.json()
+        
+        total = next((p for p in data["plans"] if p["id"] == "total"), None)
+        assert total is not None
+        assert total["pricing"]["annual"]["price"] == 12900  # 1290 * 10 months
+        assert total["pricing"]["annual"]["lookup_key"] == "total_annual"
+        assert total["pricing"]["annual"]["savings"] == 2580  # 2 months savings
 
 
 class TestSubscriptionSession:
@@ -204,6 +240,108 @@ class TestSubscriptionSession:
         
         # Should return 404 for invalid plan
         assert response.status_code == 404
+    
+    def test_create_subscription_session_essencial_annual(self):
+        """Subscription session for essencial annual plan"""
+        payload = {
+            "lookup_key": "essencial_annual",
+            "customer_email": "test_annual@example.com",
+            "customer_name": "Test Annual User",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["plan"] == "essencial_annual"
+        assert data["amount"] == 3490  # Annual price with 2 months discount
+    
+    def test_create_subscription_session_preventivo_annual(self):
+        """Subscription session for preventivo annual plan"""
+        payload = {
+            "lookup_key": "preventivo_annual",
+            "customer_email": "test_annual2@example.com",
+            "customer_name": "Test Annual User 2",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["plan"] == "preventivo_annual"
+        assert data["amount"] == 6990  # Annual price with 2 months discount
+    
+    def test_create_subscription_session_total_annual(self):
+        """Subscription session for total annual plan"""
+        payload = {
+            "lookup_key": "total_annual",
+            "customer_email": "test_annual3@example.com",
+            "customer_name": "Test Annual User 3",
+            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+        }
+        
+        response = requests.post(
+            f"{BASE_URL}/api/stripe/create-subscription-session",
+            json=payload
+        )
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["plan"] == "total_annual"
+        assert data["amount"] == 12900  # Annual price with 2 months discount
+
+
+class TestCustomerPortal:
+    """Test customer portal endpoints"""
+    
+    def test_get_customer_subscriptions(self):
+        """GET /api/customer/subscriptions should return customer subscriptions"""
+        response = requests.get(f"{BASE_URL}/api/customer/subscriptions?email=test@example.com")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "subscriptions" in data
+        assert isinstance(data["subscriptions"], list)
+    
+    def test_get_customer_interventions(self):
+        """GET /api/customer/interventions should return customer interventions"""
+        response = requests.get(f"{BASE_URL}/api/customer/interventions?email=test@example.com")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "interventions" in data
+        assert isinstance(data["interventions"], list)
+    
+    def test_create_portal_session_no_subscription(self):
+        """POST /api/customer/portal-session should fail without active subscription"""
+        response = requests.post(
+            f"{BASE_URL}/api/customer/portal-session?email=nonexistent@example.com&return_url=https://obelisco-payments.preview.emergentagent.com"
+        )
+        
+        # Should return 404 when no active subscription found
+        assert response.status_code == 404
+        data = response.json()
+        assert "Nenhuma subscricao ativa encontrada" in data.get("detail", "")
+    
+    def test_get_customer_payments(self):
+        """GET /api/customer/payments should return customer payment history"""
+        response = requests.get(f"{BASE_URL}/api/customer/payments?email=test@example.com")
+        
+        assert response.status_code == 200
+        data = response.json()
+        assert "payments" in data
+        assert isinstance(data["payments"], list)
 
 
 class TestStripeCheckoutSession:
