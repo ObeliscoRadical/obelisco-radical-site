@@ -1,0 +1,56 @@
+{
+  "summary": "Update mode testing complete - Verified test credentials (teste.obelisco@gmail.com) work correctly in customer portal. All features verified: subscription displays with correct plan (Total), hours (3.5/12), status (Ativo), and intervention request form accessible.",
+  "mode": "update",
+  "baseline_commit": "9b9eececdeca9a893935029b8a4eae7b7157cb3d",
+  "head_commit": "2daa531397e6367b45fda3ac551ba3e4e83f8912",
+  "specs_created": [],
+  "specs_updated": [
+    "/app/tests/e2e/customer-portal.spec.ts",
+    "/app/backend/tests/test_customer_portal.py"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_customer_portal.py",
+    "/app/test_reports/pytest/pytest_customer_portal.xml"
+  ],
+  "regression_results": {
+    "total_specs": 16,
+    "passed": 16,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": [
+    "/app/tests/e2e/customer-portal.spec.ts",
+    "/app/backend/tests/test_customer_portal.py"
+  ],
+  "test_results": {
+    "backend": "100% (6/6 tests passed)",
+    "frontend": "100% (10/10 tests passed)"
+  },
+  "seed_data_creation": "Test subscription and intervention data was created by main agent in MongoDB for teste.obelisco@gmail.com",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Test credentials verified working: email=teste.obelisco@gmail.com, plan=Total (1290 EUR/mes), hours=3.5 used of 12 included, status=active. Customer portal shows subscription correctly with progress bar, hours display, and intervention request form. Recent intervention with status 'scheduled' also displays correctly.",
+  "verified_features": {
+    "test_credentials_work": true,
+    "customer_portal_shows_subscription": true,
+    "correct_plan_displayed": "Total (1290 EUR/mes)",
+    "hours_display_correctly": "3.5h / 12h (8.5h available)",
+    "subscription_status": "Ativo",
+    "intervention_request_form_accessible": true,
+    "recent_interventions_displayed": true
+  },
+  "backend_tests_summary": {
+    "test_get_subscriptions_returns_active_subscription": "PASSED - Returns active subscription for test email",
+    "test_subscription_has_correct_plan_details": "PASSED - Plan Total, 1290 EUR, monthly billing",
+    "test_subscription_has_correct_hours": "PASSED - 12 included, 3.5 used, 8.5 available",
+    "test_get_interventions_returns_scheduled_intervention": "PASSED - Returns scheduled intervention",
+    "test_subscription_details_endpoint": "PASSED - Detailed subscription info with hours breakdown",
+    "test_nonexistent_email_returns_empty_subscriptions": "PASSED - Empty array for unknown email"
+  },
+  "frontend_tests_summary": {
+    "customer-portal.spec.ts": "10 tests - Area Cliente button, modal, email input, no subscriptions message, close modal, navigate to plans, test credentials login, subscription details, intervention form, recent interventions"
+  }
+}
