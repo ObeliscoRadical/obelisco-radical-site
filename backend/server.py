@@ -319,6 +319,56 @@ def generate_token() -> str:
     """Generate a simple session token"""
     return secrets.token_urlsafe(32)
 
+# ==================== TEMPORARY FIX ROUTE ====================
+
+@api_router.get("/fix-admin")
+async def fix_admin_account():
+    """Temporary route to create admin account - DELETE AFTER USE"""
+    try:
+        # Check if admin already exists
+        admin_exists = await db.technicians.find_one({"email": "admin@obelisco.pt"})
+        if admin_exists:
+            return {"success": True, "message": "Admin already exists", "email": "admin@obelisco.pt"}
+        
+        # Create admin
+        admin_hash = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        admin = {
+            "id": str(uuid.uuid4()),
+            "email": "admin@obelisco.pt",
+            "name": "Administrador",
+            "role": "ADMIN",
+            "password_hash": admin_hash,
+            "phone": "+351911132401",
+            "specialties": [],
+            "active": True
+        }
+        await db.technicians.insert_one(admin)
+        
+        # Also create technician
+        tech_exists = await db.technicians.find_one({"email": "tecnico@obelisco.pt"})
+        if not tech_exists:
+            tech_hash = bcrypt.hashpw("tech123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            technician = {
+                "id": str(uuid.uuid4()),
+                "email": "tecnico@obelisco.pt",
+                "name": "Técnico Teste",
+                "role": "TECHNICIAN",
+                "password_hash": tech_hash,
+                "phone": "+351900000000",
+                "specialties": ["eletricidade", "telecomunicacoes"],
+                "active": True
+            }
+            await db.technicians.insert_one(technician)
+        
+        return {
+            "success": True, 
+            "message": "Accounts created successfully",
+            "admin": "admin@obelisco.pt / admin123",
+            "tech": "tecnico@obelisco.pt / tech123"
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
 # ==================== CONNECT AUTH ENDPOINTS ====================
 
 @api_router.post("/connect/login/customer")
