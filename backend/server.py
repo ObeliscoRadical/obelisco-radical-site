@@ -618,22 +618,59 @@ async def assign_service_request(request_id: str, technician_id: str, request: R
         raise HTTPException(status_code=404, detail="Pedido nao encontrado")
     
     # Send email notification to technician
-    tech_email_html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
-        <h2 style="color: #facc15;">Novo Trabalho Atribuido</h2>
-        <p>Ola {technician.get('name')},</p>
+    urgency_color = '#EF4444' if service_req.get('urgency') == 'urgent' or service_req.get('urgency') == 'emergency' else '#22C55E'
+    urgency_text = service_req.get('urgency', 'normal').upper()
+    
+    tech_content = f'''
+        <p>Ola <strong>{technician.get('name')}</strong>,</p>
         <p>Foi-lhe atribuido um novo trabalho:</p>
-        <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <p><strong>Cliente:</strong> {service_req.get('customer_name', 'N/A')}</p>
-            <p><strong>Tipo:</strong> {service_req.get('request_type', 'N/A')}</p>
-            <p><strong>Urgencia:</strong> <span style="color: {'#ef4444' if service_req.get('urgency') == 'urgent' else '#22c55e'};">{service_req.get('urgency', 'normal').upper()}</span></p>
-            <p><strong>Morada:</strong> {service_req.get('address', 'Nao especificada')}</p>
-            <p><strong>Descricao:</strong> {service_req.get('description', 'Sem descricao')}</p>
-        </div>
-        <a href="https://obelisco-payments.preview.emergentagent.com/connect/tech" style="display: inline-block; background: #facc15; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; margin: 20px 0;">Ver Trabalhos</a>
-    </div>
-    """
-    await send_email_async(technician.get('email'), f"Novo Trabalho Atribuido - {service_req.get('customer_name', 'Cliente')}", tech_email_html)
+        
+        <table width="100%" style="background: #27272A; border-radius: 8px; margin: 20px 0;">
+            <tr>
+                <td style="padding: 20px;">
+                    <table width="100%">
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #3F3F46;">
+                                <span style="color: #A1A1AA;">Cliente</span><br>
+                                <strong style="color: #fff;">{service_req.get('customer_name', 'N/A')}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #3F3F46;">
+                                <span style="color: #A1A1AA;">Tipo de Servico</span><br>
+                                <strong style="color: #fff;">{service_req.get('request_type', 'N/A').upper()}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #3F3F46;">
+                                <span style="color: #A1A1AA;">Urgencia</span><br>
+                                <strong style="color: {urgency_color};">{urgency_text}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #3F3F46;">
+                                <span style="color: #A1A1AA;">Morada</span><br>
+                                <strong style="color: #fff;">{service_req.get('address', 'Nao especificada')}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;">
+                                <span style="color: #A1A1AA;">Descricao</span><br>
+                                <span style="color: #fff;">{service_req.get('description', 'Sem descricao')}</span>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    '''
+    tech_email_html = get_email_base_template(
+        "Novo Trabalho Atribuido",
+        tech_content,
+        "Ver Trabalhos",
+        "https://obelisco-payments.preview.emergentagent.com/connect/tech"
+    )
+    await send_email_async(technician.get('email'), f"⚡ Novo Trabalho - {service_req.get('customer_name', 'Cliente')}", tech_email_html)
     
     # Send push notification to technician
     await send_push_notification(
@@ -772,23 +809,49 @@ async def create_work_log(data: WorkLogCreate, request: Request):
     new_hours_available = hours_available - data.hours_spent
     
     # Send email notification to customer
-    customer_email_html = f"""
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
-        <h2 style="color: #22c55e;">Servico Concluido</h2>
-        <p>Ola {service_req.get('customer_name', 'Cliente')},</p>
-        <p>O seu servico foi concluido com sucesso.</p>
-        <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
-            <p><strong>Tecnico:</strong> {technician.get('name', 'N/A') if technician else 'N/A'}</p>
-            <p><strong>Horas Utilizadas:</strong> <span style="color: #facc15;">{data.hours_spent}h</span></p>
-            <p><strong>Saldo Restante:</strong> <span style="color: #22c55e;">{new_hours_available:.1f}h</span></p>
-        </div>
-        <p><strong>Trabalho Realizado:</strong></p>
-        <p style="background: #3f3f46; padding: 10px; border-radius: 8px;">{data.work_description}</p>
-        <a href="https://obelisco-payments.preview.emergentagent.com/connect/client" style="display: inline-block; background: #facc15; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; margin: 20px 0;">Ver Historico</a>
-        <p style="color: #71717a; font-size: 12px;">Obrigado por confiar na Obelisco Radical!</p>
-    </div>
-    """
-    await send_email_async(service_req.get('customer_email'), "Servico Concluido - Obelisco Radical", customer_email_html)
+    customer_content = f'''
+        <p>Ola <strong>{service_req.get('customer_name', 'Cliente')}</strong>,</p>
+        <p>O seu servico foi concluido com sucesso! Aqui esta o resumo:</p>
+        
+        <table width="100%" style="background: #27272A; border-radius: 8px; margin: 20px 0;">
+            <tr>
+                <td style="padding: 20px;">
+                    <table width="100%">
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #3F3F46;">
+                                <span style="color: #A1A1AA;">Tecnico Responsavel</span><br>
+                                <strong style="color: #fff;">{technician.get('name', 'N/A') if technician else 'N/A'}</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px solid #3F3F46;">
+                                <span style="color: #A1A1AA;">Horas Utilizadas</span><br>
+                                <strong style="color: #FFD700; font-size: 18px;">{data.hours_spent}h</strong>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0;">
+                                <span style="color: #A1A1AA;">Saldo Restante</span><br>
+                                <strong style="color: #22C55E; font-size: 18px;">{new_hours_available:.1f}h</strong>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+        
+        <p style="color: #A1A1AA;">Trabalho Realizado:</p>
+        <p style="background: #3F3F46; padding: 15px; border-radius: 8px; margin: 10px 0;">{data.work_description}</p>
+        
+        <p style="margin-top: 20px; color: #A1A1AA; font-size: 13px;">Obrigado por confiar na Obelisco Radical!</p>
+    '''
+    customer_email_html = get_email_base_template(
+        "Servico Concluido ✓",
+        customer_content,
+        "Ver Historico",
+        "https://obelisco-payments.preview.emergentagent.com/connect/client"
+    )
+    await send_email_async(service_req.get('customer_email'), "✅ Servico Concluido - Obelisco Radical", customer_email_html)
     
     logger.info(f"Work log created: {work_log.id}, hours deducted: {data.hours_spent}")
     
@@ -1132,6 +1195,82 @@ async def send_email_async(to_email: str, subject: str, html_content: str):
     
     logger.warning(f"No email service configured, skipping email to {to_email}")
     return None
+
+# Email Template with Logo
+LOGO_URL = "https://static.prod-images.emergentagent.com/jobs/4ff933d8-01f4-422b-b82c-e2551dfb5072/images/d46c96702de76a43d15bceb10caa35485eff4d5ba54875064cde85788374f61e.jpeg"
+
+def get_email_base_template(title: str, content: str, cta_text: str = None, cta_url: str = None) -> str:
+    """Generate professional email template with Obelisco branding"""
+    cta_html = ""
+    if cta_text and cta_url:
+        cta_html = f'''
+        <tr>
+            <td style="padding: 30px 40px;">
+                <a href="{cta_url}" style="display: inline-block; background: #FFD700; color: #000; padding: 14px 32px; text-decoration: none; font-weight: bold; font-size: 14px; border-radius: 4px;">{cta_text}</a>
+            </td>
+        </tr>
+        '''
+    
+    return f'''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #09090B; font-family: 'Segoe UI', Arial, sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #09090B; padding: 40px 20px;">
+            <tr>
+                <td align="center">
+                    <table width="600" cellpadding="0" cellspacing="0" style="background-color: #18181B; border: 1px solid #27272A; border-radius: 12px; overflow: hidden;">
+                        <!-- Header with Logo -->
+                        <tr>
+                            <td style="background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); padding: 30px; text-align: center; border-bottom: 3px solid #FFD700;">
+                                <img src="{LOGO_URL}" alt="Obelisco Radical" style="max-width: 200px; height: auto;">
+                            </td>
+                        </tr>
+                        
+                        <!-- Title -->
+                        <tr>
+                            <td style="padding: 30px 40px 10px;">
+                                <h1 style="color: #FFD700; margin: 0; font-size: 24px; font-weight: bold;">{title}</h1>
+                            </td>
+                        </tr>
+                        
+                        <!-- Content -->
+                        <tr>
+                            <td style="padding: 20px 40px; color: #E4E4E7; font-size: 15px; line-height: 1.6;">
+                                {content}
+                            </td>
+                        </tr>
+                        
+                        <!-- CTA Button -->
+                        {cta_html}
+                        
+                        <!-- Footer -->
+                        <tr>
+                            <td style="background-color: #0a0a0a; padding: 25px 40px; border-top: 1px solid #27272A;">
+                                <table width="100%">
+                                    <tr>
+                                        <td style="color: #71717A; font-size: 12px;">
+                                            <p style="margin: 0 0 8px;">Obelisco Radical - Servicos Eletricos</p>
+                                            <p style="margin: 0 0 8px;">📞 +351 911 132 401</p>
+                                            <p style="margin: 0;">📧 obeliscoradical@gmail.com</p>
+                                        </td>
+                                        <td style="text-align: right; color: #71717A; font-size: 11px;">
+                                            <p style="margin: 0;">Recebeu este email porque<br>tem uma subscricao ativa.</p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+    '''
 
 async def send_welcome_email(customer_name: str, customer_email: str, plan_name: str, amount: float, billing_cycle: str):
     """Send welcome email to new subscriber"""
