@@ -30,6 +30,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from pywebpush import webpush, WebPushException
 from py_vapid import Vapid
+import bcrypt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -3086,6 +3087,45 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_seed_accounts():
+    """Create default admin and technician accounts if they don't exist"""
+    # Check if admin exists
+    admin_exists = await db.technicians.find_one({"email": "admin@obelisco.pt"})
+    if not admin_exists:
+        admin_password = "admin123"
+        admin_hash = bcrypt.hashpw(admin_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        admin = {
+            "id": str(uuid.uuid4()),
+            "email": "admin@obelisco.pt",
+            "name": "Administrador",
+            "role": "ADMIN",
+            "password_hash": admin_hash,
+            "phone": "+351911132401",
+            "specialties": [],
+            "active": True
+        }
+        await db.technicians.insert_one(admin)
+        logger.info("Default admin account created: admin@obelisco.pt")
+    
+    # Check if technician exists
+    tech_exists = await db.technicians.find_one({"email": "tecnico@obelisco.pt"})
+    if not tech_exists:
+        tech_password = "tech123"
+        tech_hash = bcrypt.hashpw(tech_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        technician = {
+            "id": str(uuid.uuid4()),
+            "email": "tecnico@obelisco.pt",
+            "name": "Técnico Teste",
+            "role": "TECHNICIAN",
+            "password_hash": tech_hash,
+            "phone": "+351900000000",
+            "specialties": ["eletricidade", "telecomunicacoes"],
+            "active": True
+        }
+        await db.technicians.insert_one(technician)
+        logger.info("Default technician account created: tecnico@obelisco.pt")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
