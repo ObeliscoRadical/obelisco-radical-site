@@ -794,9 +794,9 @@ export default function App() {
     if (role === 'ADMIN') {
       window.location.href = '/connect/admin';
     } else if (role === 'TECHNICIAN') {
-      window.location.href = '/connect/tecnico';
+      window.location.href = '/connect/tech';
     } else {
-      window.location.href = '/connect/cliente';
+      window.location.href = '/connect/client';
     }
   };
 
@@ -1247,6 +1247,15 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                   {item.label}
                 </button>
               ))}
+
+              {/* Obelisco Connect Link */}
+              <a
+                href="/connect"
+                onClick={() => setMenuOpen(false)}
+                className="block w-full rounded-xl border border-yellow-500/40 bg-yellow-500/10 px-3 py-3 text-center font-semibold text-yellow-400 transition hover:bg-yellow-500/20"
+              >
+                Obelisco Connect
+              </a>
 
               <a
                 href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
