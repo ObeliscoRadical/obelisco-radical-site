@@ -1,0 +1,70 @@
+{
+  "summary": "Phase 2 Obelisco Connect testing complete. All Service Requests, Work Logs, Admin endpoints, and Dashboard APIs verified. 82 backend tests and 23 frontend tests passed.",
+  "mode": "generate",
+  "baseline_commit": "ee57f5b511c46c1ec7f78ce4e5913e44a5d9e76f",
+  "head_commit": "34bc46563e791c5357557dd94d118eff4acaaf1c",
+  "specs_created": [
+    "/app/backend/tests/test_connect_phase2.py",
+    "/app/tests/e2e/connect-phase2-api.spec.ts"
+  ],
+  "specs_updated": [
+    "/app/backend/tests/test_customer_portal.py"
+  ],
+  "quarantined_tests": [],
+  "test_report_links": [
+    "/app/backend/tests/test_connect_phase2.py",
+    "/app/backend/tests/test_connect_auth.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "regression_results": {
+    "total_specs": 105,
+    "passed": 105,
+    "failed": 0,
+    "skipped": 0
+  },
+  "issues": [],
+  "action_items": [],
+  "updated_files": [
+    "/app/backend/tests/test_connect_phase2.py",
+    "/app/backend/tests/test_customer_portal.py",
+    "/app/tests/e2e/connect-phase2-api.spec.ts"
+  ],
+  "test_results": {
+    "backend": "100% (82/82 tests passed)",
+    "frontend": "100% (23/23 tests passed)"
+  },
+  "seed_data_creation": "Using existing seeded data: Customer (teste.obelisco@gmail.com), Admin (admin@obelisco.pt), Technician (tecnico@obelisco.pt)",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Phase 2 Obelisco Connect complete. All APIs tested: Service Requests (create, list, assign, schedule, status update), Work Logs (create, list, hours deduction), Admin endpoints (technicians CRUD, subscriptions list, hours adjustment, stats), Customer Dashboard (subscription, hours, requests, logs), Technician Dashboard (assigned requests, stats, recent logs). Test credentials: cliente=teste.obelisco@gmail.com, admin=admin@obelisco.pt/admin123, tecnico=tecnico@obelisco.pt/tech123",
+  "verified_features": {
+    "connect_auth_customer_login": true,
+    "connect_auth_staff_login": true,
+    "connect_auth_me_endpoint": true,
+    "connect_auth_logout": true,
+    "service_requests_create": true,
+    "service_requests_list": true,
+    "service_requests_assign_technician": true,
+    "service_requests_update_status": true,
+    "work_logs_list": true,
+    "work_logs_hours_deduction": true,
+    "admin_list_technicians": true,
+    "admin_create_technician": true,
+    "admin_list_subscriptions": true,
+    "admin_hours_adjustment": true,
+    "admin_dashboard_stats": true,
+    "customer_dashboard": true,
+    "technician_dashboard": true
+  },
+  "backend_tests_summary": {
+    "test_connect_auth.py": "12 tests - Customer login, Staff login, /me endpoint, Logout",
+    "test_connect_phase2.py": "30 tests - Customer Dashboard, Technician Dashboard, Admin Stats, Admin Technicians, Admin Subscriptions, Service Requests, Work Logs, Hours Adjustment",
+    "test_customer_portal.py": "6 tests - Customer subscriptions and interventions",
+    "test_stripe_integration.py": "34 tests - Stripe config, plans, checkout sessions, payments"
+  },
+  "frontend_tests_summary": {
+    "connect-login.spec.ts": "7 tests - Login page, toggle modes, customer/admin/technician login, error handling",
+    "connect-pwa.spec.ts": "7 tests - Navigation, manifest, service worker, offline page",
+    "connect-phase2-api.spec.ts": "9 tests - Full API flow for Phase 2 features"
+  }
+}

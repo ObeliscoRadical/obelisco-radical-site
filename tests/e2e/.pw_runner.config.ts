@@ -2,13 +2,13 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: '/app/tests/e2e',
-  outputDir: '/root/.emergent/automation_output/20260803_223018/test-results',
+  outputDir: '/root/.emergent/automation_output/20260804_141017/test-results',
   timeout: 60000,
   retries: 0,
   workers: 1,
   reporter: [
     ['line'],
-    ['json', { outputFile: '/root/.emergent/automation_output/20260803_223018/results.json' }],
+    ['json', { outputFile: '/root/.emergent/automation_output/20260804_141017/results.json' }],
   ],
   use: {
     baseURL: 'https://obelisco-payments.preview.emergentagent.com',

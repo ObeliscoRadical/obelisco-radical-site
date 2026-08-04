@@ -162,6 +162,87 @@ class InterventionRecord(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+# ==================== OBELISCO CONNECT MODELS ====================
+
+# Service Request - Full model for the Connect system
+class ServiceRequestCreate(BaseModel):
+    subscription_id: str
+    customer_email: str
+    request_type: str = "avaria"  # avaria, manutencao, instalacao
+    urgency: str = "normal"  # normal, urgent, emergency
+    description: str
+    media_urls: List[str] = []
+    preferred_date: Optional[str] = None
+    preferred_time: Optional[str] = None
+    address: Optional[str] = None
+
+class ServiceRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subscription_id: str
+    customer_email: str
+    customer_name: str = ""
+    request_type: str = "avaria"
+    urgency: str = "normal"
+    description: str
+    media_urls: List[str] = []
+    preferred_date: Optional[str] = None
+    preferred_time: Optional[str] = None
+    address: Optional[str] = None
+    status: str = "pending"  # pending, assigned, scheduled, in_progress, completed, cancelled
+    assigned_technician_id: Optional[str] = None
+    assigned_technician_name: Optional[str] = None
+    scheduled_date: Optional[str] = None
+    scheduled_time: Optional[str] = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Work Log - Record of work done by technician
+class WorkLogCreate(BaseModel):
+    service_request_id: str
+    hours_spent: float
+    work_description: str
+    notes: Optional[str] = None
+    materials_used: Optional[dict] = None
+    media_urls: List[str] = []
+
+class WorkLog(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    service_request_id: str
+    technician_id: str
+    technician_name: str = ""
+    subscription_id: str
+    customer_email: str
+    start_time: Optional[str] = None
+    end_time: Optional[str] = None
+    hours_spent: float
+    work_description: str
+    notes: Optional[str] = None
+    materials_used: Optional[dict] = None
+    media_urls: List[str] = []
+    customer_signature_url: Optional[str] = None
+    status: str = "submitted"  # draft, submitted, approved
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+# Hours Adjustment - Manual adjustment by admin
+class HoursAdjustmentCreate(BaseModel):
+    subscription_id: str
+    hours_adjusted: float  # positive or negative
+    reason: str
+
+class HoursAdjustment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    subscription_id: str
+    admin_id: str
+    admin_name: str = ""
+    hours_adjusted: float
+    previous_balance: float
+    new_balance: float
+    reason: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
 # Plan hours mapping
 PLAN_HOURS = {
     "essencial": 3,
@@ -341,6 +422,556 @@ async def connect_logout(request: Request):
         token = auth_header.replace("Bearer ", "")
         await db.connect_sessions.delete_one({"token": token})
     return {"success": True}
+
+# ==================== CONNECT API - SERVICE REQUESTS ====================
+
+async def get_user_from_token(request: Request):
+    """Helper to get user from Authorization header"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token nao fornecido")
+    
+    token = auth_header.replace("Bearer ", "")
+    session = await db.connect_sessions.find_one({"token": token}, {"_id": 0})
+    
+    if not session:
+        raise HTTPException(status_code=401, detail="Sessao invalida")
+    
+    expires_at = datetime.fromisoformat(session.get("expires_at"))
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=401, detail="Sessao expirada")
+    
+    return session
+
+@api_router.post("/connect/service-requests")
+async def create_service_request(data: ServiceRequestCreate, request: Request):
+    """Customer creates a new service request"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "CUSTOMER":
+        raise HTTPException(status_code=403, detail="Apenas clientes podem criar pedidos")
+    
+    # Get subscription details
+    subscription = await db.subscriptions.find_one(
+        {"id": data.subscription_id, "customer_email": data.customer_email},
+        {"_id": 0}
+    )
+    
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    if subscription.get("status") != "active":
+        raise HTTPException(status_code=400, detail="Subscricao nao esta ativa")
+    
+    # Create service request
+    service_request = ServiceRequest(
+        subscription_id=data.subscription_id,
+        customer_email=data.customer_email,
+        customer_name=subscription.get("customer_name", ""),
+        request_type=data.request_type,
+        urgency=data.urgency,
+        description=data.description,
+        media_urls=data.media_urls,
+        preferred_date=data.preferred_date,
+        preferred_time=data.preferred_time,
+        address=data.address,
+        status="pending"
+    )
+    
+    doc = service_request.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    doc["updated_at"] = doc["updated_at"].isoformat()
+    
+    await db.service_requests.insert_one(doc)
+    
+    # Send notification to admin
+    await send_admin_notification("intervention", subscription.get("customer_name", "Cliente"), data.customer_email, {
+        "plan_name": subscription.get("plan_name", ""),
+        "urgency": data.urgency,
+        "preferred_date": data.preferred_date,
+        "preferred_time": data.preferred_time,
+        "address": data.address,
+        "description": data.description
+    })
+    
+    logger.info(f"Service request created: {service_request.id}")
+    
+    return {
+        "success": True,
+        "service_request_id": service_request.id,
+        "message": "Pedido criado com sucesso"
+    }
+
+@api_router.get("/connect/service-requests")
+async def list_service_requests(request: Request, status: Optional[str] = None, limit: int = 50):
+    """List service requests based on user role"""
+    session = await get_user_from_token(request)
+    user_type = session.get("user_type")
+    
+    query = {}
+    
+    if user_type == "CUSTOMER":
+        # Customers see only their requests
+        query["customer_email"] = session.get("user_email")
+    elif user_type == "TECHNICIAN":
+        # Technicians see requests assigned to them
+        query["assigned_technician_id"] = session.get("staff_id")
+    # ADMIN sees all
+    
+    if status:
+        query["status"] = status
+    
+    requests = await db.service_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    
+    return {"service_requests": requests, "count": len(requests)}
+
+@api_router.get("/connect/service-requests/{request_id}")
+async def get_service_request(request_id: str, request: Request):
+    """Get a specific service request"""
+    session = await get_user_from_token(request)
+    
+    service_req = await db.service_requests.find_one({"id": request_id}, {"_id": 0})
+    
+    if not service_req:
+        raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
+    # Check access
+    user_type = session.get("user_type")
+    if user_type == "CUSTOMER" and service_req.get("customer_email") != session.get("user_email"):
+        raise HTTPException(status_code=403, detail="Sem permissao")
+    elif user_type == "TECHNICIAN" and service_req.get("assigned_technician_id") != session.get("staff_id"):
+        raise HTTPException(status_code=403, detail="Sem permissao")
+    
+    # Get work logs for this request
+    work_logs = await db.work_logs.find({"service_request_id": request_id}, {"_id": 0}).to_list(100)
+    
+    return {
+        "service_request": service_req,
+        "work_logs": work_logs
+    }
+
+@api_router.put("/connect/service-requests/{request_id}/assign")
+async def assign_service_request(request_id: str, technician_id: str, request: Request):
+    """Admin assigns a technician to a service request"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins podem atribuir tecnicos")
+    
+    # Get technician
+    technician = await db.staff_users.find_one({"id": technician_id, "role": "TECHNICIAN"}, {"_id": 0})
+    if not technician:
+        raise HTTPException(status_code=404, detail="Tecnico nao encontrado")
+    
+    # Update service request
+    result = await db.service_requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "assigned_technician_id": technician_id,
+            "assigned_technician_name": technician.get("name"),
+            "status": "assigned",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
+    return {"success": True, "message": f"Pedido atribuido a {technician.get('name')}"}
+
+@api_router.put("/connect/service-requests/{request_id}/schedule")
+async def schedule_service_request(request_id: str, scheduled_date: str, scheduled_time: str, request: Request):
+    """Admin/Technician schedules a service request"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") not in ["ADMIN", "TECHNICIAN"]:
+        raise HTTPException(status_code=403, detail="Sem permissao")
+    
+    result = await db.service_requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "scheduled_date": scheduled_date,
+            "scheduled_time": scheduled_time,
+            "status": "scheduled",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
+    return {"success": True, "message": "Pedido agendado"}
+
+@api_router.put("/connect/service-requests/{request_id}/status")
+async def update_service_request_status(request_id: str, status: str, request: Request):
+    """Update service request status"""
+    session = await get_user_from_token(request)
+    
+    valid_statuses = ["pending", "assigned", "scheduled", "in_progress", "completed", "cancelled"]
+    if status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Status invalido. Use: {valid_statuses}")
+    
+    # Check permissions
+    user_type = session.get("user_type")
+    if user_type == "CUSTOMER":
+        if status not in ["cancelled"]:
+            raise HTTPException(status_code=403, detail="Clientes so podem cancelar pedidos")
+    
+    result = await db.service_requests.update_one(
+        {"id": request_id},
+        {"$set": {
+            "status": status,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
+    return {"success": True, "message": f"Status atualizado para {status}"}
+
+# ==================== CONNECT API - WORK LOGS ====================
+
+@api_router.post("/connect/work-logs")
+async def create_work_log(data: WorkLogCreate, request: Request):
+    """Technician creates a work log (hours deduction)"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "TECHNICIAN":
+        raise HTTPException(status_code=403, detail="Apenas tecnicos podem registar trabalhos")
+    
+    # Get service request
+    service_req = await db.service_requests.find_one({"id": data.service_request_id}, {"_id": 0})
+    if not service_req:
+        raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
+    # Verify technician is assigned
+    if service_req.get("assigned_technician_id") != session.get("staff_id"):
+        raise HTTPException(status_code=403, detail="Nao esta atribuido a este pedido")
+    
+    # Get technician details
+    technician = await db.staff_users.find_one({"id": session.get("staff_id")}, {"_id": 0})
+    
+    # Get subscription to check hours
+    subscription = await db.subscriptions.find_one({"id": service_req.get("subscription_id")}, {"_id": 0})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    hours_available = subscription.get("hours_included", 0) - subscription.get("hours_used", 0)
+    
+    if data.hours_spent > hours_available:
+        logger.warning(f"Hours spent ({data.hours_spent}) exceeds available ({hours_available})")
+    
+    # Create work log
+    work_log = WorkLog(
+        service_request_id=data.service_request_id,
+        technician_id=session.get("staff_id"),
+        technician_name=technician.get("name", "") if technician else "",
+        subscription_id=service_req.get("subscription_id"),
+        customer_email=service_req.get("customer_email"),
+        hours_spent=data.hours_spent,
+        work_description=data.work_description,
+        notes=data.notes,
+        materials_used=data.materials_used,
+        media_urls=data.media_urls,
+        status="submitted"
+    )
+    
+    doc = work_log.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    
+    await db.work_logs.insert_one(doc)
+    
+    # Deduct hours from subscription
+    await db.subscriptions.update_one(
+        {"id": service_req.get("subscription_id")},
+        {"$inc": {"hours_used": data.hours_spent}}
+    )
+    
+    # Update service request status to completed
+    await db.service_requests.update_one(
+        {"id": data.service_request_id},
+        {"$set": {
+            "status": "completed",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    logger.info(f"Work log created: {work_log.id}, hours deducted: {data.hours_spent}")
+    
+    return {
+        "success": True,
+        "work_log_id": work_log.id,
+        "hours_deducted": data.hours_spent,
+        "message": "Trabalho registado e horas deduzidas"
+    }
+
+@api_router.get("/connect/work-logs")
+async def list_work_logs(request: Request, subscription_id: Optional[str] = None, limit: int = 50):
+    """List work logs based on user role"""
+    session = await get_user_from_token(request)
+    user_type = session.get("user_type")
+    
+    query = {}
+    
+    if user_type == "CUSTOMER":
+        query["customer_email"] = session.get("user_email")
+    elif user_type == "TECHNICIAN":
+        query["technician_id"] = session.get("staff_id")
+    
+    if subscription_id:
+        query["subscription_id"] = subscription_id
+    
+    logs = await db.work_logs.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+    
+    return {"work_logs": logs, "count": len(logs)}
+
+# ==================== CONNECT API - ADMIN ====================
+
+@api_router.get("/connect/admin/technicians")
+async def list_technicians(request: Request):
+    """Admin lists all technicians"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    technicians = await db.staff_users.find(
+        {"role": "TECHNICIAN"},
+        {"_id": 0, "password_hash": 0}
+    ).to_list(100)
+    
+    return {"technicians": technicians}
+
+@api_router.post("/connect/admin/technicians")
+async def create_technician(name: str, email: str, password: str, phone: Optional[str] = None, specialties: List[str] = [], request: Request = None):
+    """Admin creates a new technician"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    # Check if email exists
+    existing = await db.staff_users.find_one({"email": email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email ja existe")
+    
+    technician = {
+        "id": str(uuid.uuid4()),
+        "email": email.lower(),
+        "name": name,
+        "password_hash": hash_password(password),
+        "role": "TECHNICIAN",
+        "phone": phone,
+        "specialties": specialties,
+        "status": "active",
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    await db.staff_users.insert_one(technician)
+    
+    return {"success": True, "technician_id": technician["id"]}
+
+@api_router.get("/connect/admin/subscriptions")
+async def admin_list_subscriptions(request: Request, status: Optional[str] = None):
+    """Admin lists all subscriptions"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    query = {}
+    if status:
+        query["status"] = status
+    
+    subscriptions = await db.subscriptions.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    
+    return {"subscriptions": subscriptions, "count": len(subscriptions)}
+
+@api_router.post("/connect/admin/hours-adjustment")
+async def admin_adjust_hours(data: HoursAdjustmentCreate, request: Request):
+    """Admin manually adjusts hours for a subscription"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one({"id": data.subscription_id}, {"_id": 0})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    # Get admin details
+    admin = await db.staff_users.find_one({"id": session.get("staff_id")}, {"_id": 0})
+    
+    current_used = subscription.get("hours_used", 0)
+    new_used = current_used - data.hours_adjusted  # Positive adjustment = give back hours
+    
+    if new_used < 0:
+        new_used = 0
+    
+    # Create adjustment record
+    adjustment = HoursAdjustment(
+        subscription_id=data.subscription_id,
+        admin_id=session.get("staff_id"),
+        admin_name=admin.get("name", "") if admin else "",
+        hours_adjusted=data.hours_adjusted,
+        previous_balance=subscription.get("hours_included", 0) - current_used,
+        new_balance=subscription.get("hours_included", 0) - new_used,
+        reason=data.reason
+    )
+    
+    doc = adjustment.model_dump()
+    doc["created_at"] = doc["created_at"].isoformat()
+    
+    await db.hours_adjustments.insert_one(doc)
+    
+    # Update subscription
+    await db.subscriptions.update_one(
+        {"id": data.subscription_id},
+        {"$set": {"hours_used": new_used}}
+    )
+    
+    return {
+        "success": True,
+        "adjustment_id": adjustment.id,
+        "new_balance": subscription.get("hours_included", 0) - new_used,
+        "message": f"Ajuste de {data.hours_adjusted}h aplicado"
+    }
+
+@api_router.get("/connect/admin/hours-adjustments")
+async def list_hours_adjustments(request: Request, subscription_id: Optional[str] = None):
+    """Admin lists hours adjustments"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    query = {}
+    if subscription_id:
+        query["subscription_id"] = subscription_id
+    
+    adjustments = await db.hours_adjustments.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    
+    return {"adjustments": adjustments}
+
+@api_router.get("/connect/admin/stats")
+async def admin_get_stats(request: Request):
+    """Admin dashboard statistics"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    # Count stats
+    active_subscriptions = await db.subscriptions.count_documents({"status": "active"})
+    pending_requests = await db.service_requests.count_documents({"status": "pending"})
+    in_progress_requests = await db.service_requests.count_documents({"status": "in_progress"})
+    total_technicians = await db.staff_users.count_documents({"role": "TECHNICIAN", "status": "active"})
+    
+    # Recent requests
+    recent_requests = await db.service_requests.find({}, {"_id": 0}).sort("created_at", -1).to_list(5)
+    
+    return {
+        "stats": {
+            "active_subscriptions": active_subscriptions,
+            "pending_requests": pending_requests,
+            "in_progress_requests": in_progress_requests,
+            "total_technicians": total_technicians
+        },
+        "recent_requests": recent_requests
+    }
+
+# ==================== CONNECT API - CUSTOMER DASHBOARD ====================
+
+@api_router.get("/connect/customer/dashboard")
+async def customer_dashboard(request: Request):
+    """Customer dashboard data"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "CUSTOMER":
+        raise HTTPException(status_code=403, detail="Apenas clientes")
+    
+    email = session.get("user_email")
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one(
+        {"customer_email": email, "status": "active"},
+        {"_id": 0}
+    )
+    
+    if not subscription:
+        return {"subscription": None, "service_requests": [], "work_logs": []}
+    
+    # Hours info
+    hours_included = subscription.get("hours_included", 0)
+    hours_used = subscription.get("hours_used", 0)
+    hours_available = max(0, hours_included - hours_used)
+    
+    # Get service requests
+    service_requests = await db.service_requests.find(
+        {"customer_email": email},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(20)
+    
+    # Get work logs (extrato)
+    work_logs = await db.work_logs.find(
+        {"customer_email": email},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(20)
+    
+    return {
+        "subscription": subscription,
+        "hours": {
+            "included": hours_included,
+            "used": hours_used,
+            "available": hours_available,
+            "percentage_used": (hours_used / hours_included * 100) if hours_included > 0 else 0
+        },
+        "service_requests": service_requests,
+        "work_logs": work_logs
+    }
+
+# ==================== CONNECT API - TECHNICIAN DASHBOARD ====================
+
+@api_router.get("/connect/technician/dashboard")
+async def technician_dashboard(request: Request):
+    """Technician dashboard data"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "TECHNICIAN":
+        raise HTTPException(status_code=403, detail="Apenas tecnicos")
+    
+    tech_id = session.get("staff_id")
+    
+    # Get assigned requests
+    assigned_requests = await db.service_requests.find(
+        {"assigned_technician_id": tech_id, "status": {"$in": ["assigned", "scheduled", "in_progress"]}},
+        {"_id": 0}
+    ).sort("scheduled_date", 1).to_list(20)
+    
+    # Get completed today
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    completed_today = await db.work_logs.count_documents({
+        "technician_id": tech_id,
+        "created_at": {"$regex": f"^{today}"}
+    })
+    
+    # Get work logs
+    recent_logs = await db.work_logs.find(
+        {"technician_id": tech_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+    
+    return {
+        "assigned_requests": assigned_requests,
+        "stats": {
+            "pending_jobs": len([r for r in assigned_requests if r.get("status") in ["assigned", "scheduled"]]),
+            "in_progress": len([r for r in assigned_requests if r.get("status") == "in_progress"]),
+            "completed_today": completed_today
+        },
+        "recent_logs": recent_logs
+    }
 
 # Basic routes
 @api_router.get("/")
