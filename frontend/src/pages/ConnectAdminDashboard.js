@@ -4,15 +4,23 @@ import {
   Zap, Clock, AlertCircle, CheckCircle, Loader2, LogOut, Plus, ChevronRight,
   Calendar, FileText, User, Users, Settings, BarChart3, CreditCard, X,
   ClipboardList, History, RefreshCw, Edit2, Trash2, Search, Filter,
-  TrendingUp, DollarSign, UserPlus, Clock3
+  TrendingUp, DollarSign, UserPlus, Clock3, PieChart
 } from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  PieChart as RePieChart, Pie, Cell, LineChart, Line, Area, AreaChart
+} from 'recharts';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Chart colors
+const COLORS = ['#FFD700', '#22C55E', '#3B82F6', '#EF4444', '#8B5CF6', '#F59E0B'];
 
 const ConnectAdminDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
   const [technicians, setTechnicians] = useState([]);
   const [subscriptions, setSubscriptions] = useState([]);
   const [requests, setRequests] = useState([]);
@@ -20,6 +28,7 @@ const ConnectAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('month');
   
   // Modals
   const [showNewTech, setShowNewTech] = useState(false);
@@ -40,6 +49,26 @@ const ConnectAdminDashboard = () => {
     }
     fetchAll();
   }, [token, navigate]);
+
+  useEffect(() => {
+    if (token && activeTab === 'analytics') {
+      fetchAnalytics();
+    }
+  }, [token, activeTab, analyticsPeriod]);
+
+  const fetchAnalytics = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/connect/admin/analytics?period=${analyticsPeriod}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAnalytics(data);
+      }
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+    }
+  };
 
   const fetchAll = async () => {
     try {
@@ -303,6 +332,7 @@ const ConnectAdminDashboard = () => {
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
           {[
             { id: 'overview', label: 'Visao Geral', icon: BarChart3 },
+            { id: 'analytics', label: 'Analytics', icon: PieChart },
             { id: 'requests', label: 'Pedidos', icon: ClipboardList },
             { id: 'technicians', label: 'Tecnicos', icon: Users },
             { id: 'subscriptions', label: 'Subscricoes', icon: CreditCard },
@@ -435,6 +465,138 @@ const ConnectAdminDashboard = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Analytics Tab */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+            {/* Period Selector */}
+            <div className="flex gap-2">
+              {['week', 'month', 'year'].map(period => (
+                <button
+                  key={period}
+                  onClick={() => setAnalyticsPeriod(period)}
+                  className={`px-4 py-2 text-sm font-medium ${
+                    analyticsPeriod === period
+                      ? 'bg-[#FFD700] text-black'
+                      : 'bg-zinc-900 border border-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {period === 'week' ? 'Semana' : period === 'month' ? 'Mes' : 'Ano'}
+                </button>
+              ))}
+            </div>
+
+            {/* Summary Cards */}
+            {analytics && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-zinc-900 border border-zinc-800 p-4">
+                  <p className="text-xs text-zinc-500 uppercase mb-1">Horas Consumidas</p>
+                  <p className="text-2xl font-bold text-[#FFD700]">{analytics.summary.total_hours}h</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 p-4">
+                  <p className="text-xs text-zinc-500 uppercase mb-1">Pedidos</p>
+                  <p className="text-2xl font-bold text-white">{analytics.summary.total_requests}</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 p-4">
+                  <p className="text-xs text-zinc-500 uppercase mb-1">Taxa Conclusao</p>
+                  <p className="text-2xl font-bold text-green-400">{analytics.summary.completion_rate}%</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 p-4">
+                  <p className="text-xs text-zinc-500 uppercase mb-1">Receita</p>
+                  <p className="text-2xl font-bold text-blue-400">{analytics.summary.total_revenue}€</p>
+                </div>
+              </div>
+            )}
+
+            {/* Charts */}
+            {analytics && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Hours by Day */}
+                <div className="bg-zinc-900 border border-zinc-800 p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Consumo de Horas</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={analytics.charts.hours_by_day}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#3F3F46" />
+                      <XAxis dataKey="date" stroke="#71717A" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#71717A" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181B', border: '1px solid #3F3F46' }}
+                        labelStyle={{ color: '#fff' }}
+                      />
+                      <Area type="monotone" dataKey="horas" stroke="#FFD700" fill="#FFD700" fillOpacity={0.3} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Requests by Status */}
+                <div className="bg-zinc-900 border border-zinc-800 p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Pedidos por Estado</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <RePieChart>
+                      <Pie
+                        data={analytics.charts.requests_by_status}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={2}
+                        dataKey="count"
+                        nameKey="status"
+                        label={({ status, count }) => count > 0 ? `${status}: ${count}` : ''}
+                      >
+                        {analytics.charts.requests_by_status.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181B', border: '1px solid #3F3F46' }}
+                      />
+                    </RePieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Hours by Plan */}
+                <div className="bg-zinc-900 border border-zinc-800 p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Horas por Plano</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={analytics.charts.hours_by_plan}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#3F3F46" />
+                      <XAxis dataKey="plan" stroke="#71717A" />
+                      <YAxis stroke="#71717A" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181B', border: '1px solid #3F3F46' }}
+                      />
+                      <Bar dataKey="horas" fill="#FFD700" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                {/* Revenue by Plan */}
+                <div className="bg-zinc-900 border border-zinc-800 p-6">
+                  <h3 className="text-lg font-bold text-white mb-4">Receita por Plano</h3>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={analytics.charts.revenue_by_plan}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#3F3F46" />
+                      <XAxis dataKey="plan" stroke="#71717A" />
+                      <YAxis stroke="#71717A" />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: '#18181B', border: '1px solid #3F3F46' }}
+                        formatter={(value) => [`${value}€`, 'Receita']}
+                      />
+                      <Bar dataKey="valor" fill="#22C55E" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {!analytics && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 text-[#FFD700] animate-spin" />
+              </div>
+            )}
           </div>
         )}
 

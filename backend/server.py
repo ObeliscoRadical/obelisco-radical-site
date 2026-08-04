@@ -1023,6 +1023,7 @@ async def admin_get_stats(request: Request):
     active_subscriptions = await db.subscriptions.count_documents({"status": "active"})
     pending_requests = await db.service_requests.count_documents({"status": "pending"})
     in_progress_requests = await db.service_requests.count_documents({"status": "in_progress"})
+    completed_work_logs = await db.work_logs.count_documents({})
     total_technicians = await db.staff_users.count_documents({"role": "TECHNICIAN", "status": "active"})
     
     # Recent requests
@@ -1033,9 +1034,123 @@ async def admin_get_stats(request: Request):
             "active_subscriptions": active_subscriptions,
             "pending_requests": pending_requests,
             "in_progress_requests": in_progress_requests,
+            "completed_work_logs": completed_work_logs,
             "total_technicians": total_technicians
         },
         "recent_requests": recent_requests
+    }
+
+@api_router.get("/connect/admin/analytics")
+async def admin_get_analytics(request: Request, period: str = "month"):
+    """Admin analytics data for charts"""
+    session = await get_user_from_token(request)
+    
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    
+    now = datetime.now(timezone.utc)
+    
+    # Determine date range
+    if period == "week":
+        start_date = now - timedelta(days=7)
+    elif period == "year":
+        start_date = now - timedelta(days=365)
+    else:  # month
+        start_date = now - timedelta(days=30)
+    
+    start_iso = start_date.isoformat()
+    
+    # Get work logs for period
+    work_logs = await db.work_logs.find(
+        {"created_at": {"$gte": start_iso}},
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Get service requests for period
+    requests = await db.service_requests.find(
+        {"created_at": {"$gte": start_iso}},
+        {"_id": 0}
+    ).to_list(500)
+    
+    # Get all subscriptions
+    subscriptions = await db.subscriptions.find({}, {"_id": 0}).to_list(100)
+    
+    # Calculate hours by day
+    hours_by_day = {}
+    for log in work_logs:
+        date_str = log.get("created_at", "")[:10]
+        if date_str:
+            hours_by_day[date_str] = hours_by_day.get(date_str, 0) + log.get("hours_spent", 0)
+    
+    # Calculate requests by status
+    requests_by_status = {
+        "pending": 0,
+        "assigned": 0,
+        "in_progress": 0,
+        "completed": 0,
+        "cancelled": 0
+    }
+    for req in requests:
+        status = req.get("status", "pending")
+        if status in requests_by_status:
+            requests_by_status[status] += 1
+    
+    # Calculate hours by plan
+    hours_by_plan = {}
+    for sub in subscriptions:
+        plan = sub.get("plan_name", "Outro")
+        hours_by_plan[plan] = hours_by_plan.get(plan, 0) + sub.get("hours_used", 0)
+    
+    # Calculate revenue (approximate)
+    revenue_by_plan = {}
+    for sub in subscriptions:
+        if sub.get("status") == "active":
+            plan = sub.get("plan_name", "Outro")
+            amount = sub.get("amount", 0)
+            revenue_by_plan[plan] = revenue_by_plan.get(plan, 0) + amount
+    
+    # Format for charts
+    hours_chart_data = [
+        {"date": date, "horas": hours}
+        for date, hours in sorted(hours_by_day.items())
+    ]
+    
+    status_chart_data = [
+        {"status": status.capitalize(), "count": count}
+        for status, count in requests_by_status.items()
+    ]
+    
+    plan_chart_data = [
+        {"plan": plan, "horas": round(hours, 1)}
+        for plan, hours in hours_by_plan.items()
+    ]
+    
+    revenue_chart_data = [
+        {"plan": plan, "valor": value}
+        for plan, value in revenue_by_plan.items()
+    ]
+    
+    # Summary stats
+    total_hours = sum(log.get("hours_spent", 0) for log in work_logs)
+    total_requests = len(requests)
+    completed_requests = requests_by_status.get("completed", 0)
+    total_revenue = sum(revenue_by_plan.values())
+    
+    return {
+        "period": period,
+        "summary": {
+            "total_hours": round(total_hours, 1),
+            "total_requests": total_requests,
+            "completed_requests": completed_requests,
+            "completion_rate": round((completed_requests / total_requests * 100) if total_requests > 0 else 0, 1),
+            "total_revenue": total_revenue
+        },
+        "charts": {
+            "hours_by_day": hours_chart_data,
+            "requests_by_status": status_chart_data,
+            "hours_by_plan": plan_chart_data,
+            "revenue_by_plan": revenue_chart_data
+        }
     }
 
 # ==================== CONNECT API - CUSTOMER DASHBOARD ====================
