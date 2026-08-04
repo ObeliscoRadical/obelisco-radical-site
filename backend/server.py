@@ -44,10 +44,15 @@ stripe.api_key = os.environ.get('STRIPE_SECRET_KEY')
 STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY')
 STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 
-# Resend Email Configuration
+# Emergent Email Service Configuration
+EMERGENT_EMAIL_KEY = os.environ.get('EMERGENT_EMAIL_KEY', '')
+EMAIL_BASE_URL = "https://integrations.emergentagent.com"
+EMAIL_FROM_NAME = os.environ.get('EMAIL_FROM_NAME', 'Obelisco Radical')
+ADMIN_EMAIL = os.environ.get('ADMIN_NOTIFICATION_EMAIL', 'obeliscoradical@gmail.com')
+
+# Legacy Resend (fallback if no Emergent key)
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
-ADMIN_EMAIL = os.environ.get('ADMIN_NOTIFICATION_EMAIL', 'obeliscoradical@gmail.com')
 if RESEND_API_KEY and RESEND_API_KEY != 're_123_test_placeholder':
     resend.api_key = RESEND_API_KEY
 
@@ -1086,24 +1091,47 @@ async def get_status_checks():
 # ==================== EMAIL FUNCTIONS ====================
 
 async def send_email_async(to_email: str, subject: str, html_content: str):
-    """Send email using Resend (async wrapper)"""
-    if not RESEND_API_KEY or RESEND_API_KEY == 're_123_test_placeholder':
-        logger.warning("RESEND_API_KEY not configured, skipping email")
-        return None
+    """Send email using Emergent Email Service (primary) or Resend (fallback)"""
     
-    try:
-        params = {
-            "from": f"Obelisco Radical <{SENDER_EMAIL}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_content
-        }
-        result = await asyncio.to_thread(resend.Emails.send, params)
-        logger.info(f"Email sent to {to_email}: {result.get('id')}")
-        return result
-    except Exception as e:
-        logger.error(f"Failed to send email to {to_email}: {str(e)}")
-        return None
+    # Try Emergent Email Service first
+    if EMERGENT_EMAIL_KEY:
+        try:
+            payload = {
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content,
+                "from_name": EMAIL_FROM_NAME
+            }
+            async with httpx.AsyncClient(timeout=30) as client:
+                resp = await client.post(
+                    f"{EMAIL_BASE_URL}/api/v1/email/send",
+                    headers={"X-Email-Key": EMERGENT_EMAIL_KEY},
+                    json=payload
+                )
+            resp.raise_for_status()
+            logger.info(f"Email sent via Emergent to {to_email}")
+            return {"success": True, "service": "emergent"}
+        except Exception as e:
+            logger.error(f"Emergent email error: {e}")
+            # Fall through to Resend
+    
+    # Fallback to Resend
+    if RESEND_API_KEY and RESEND_API_KEY != 're_123_test_placeholder':
+        try:
+            params = {
+                "from": f"Obelisco Radical <{SENDER_EMAIL}>",
+                "to": [to_email],
+                "subject": subject,
+                "html": html_content
+            }
+            result = await asyncio.to_thread(resend.Emails.send, params)
+            logger.info(f"Email sent via Resend to {to_email}: {result.get('id')}")
+            return result
+        except Exception as e:
+            logger.error(f"Resend email error: {e}")
+    
+    logger.warning(f"No email service configured, skipping email to {to_email}")
+    return None
 
 async def send_welcome_email(customer_name: str, customer_email: str, plan_name: str, amount: float, billing_cycle: str):
     """Send welcome email to new subscriber"""
@@ -2345,24 +2373,11 @@ async def get_booked_slots(start_date: str, end_date: str):
 # ============ EMAIL NOTIFICATIONS ============
 
 async def send_email_notification(to_email: str, subject: str, html_content: str):
-    """Send email using Resend API"""
-    if not RESEND_API_KEY or RESEND_API_KEY == 're_123_test_placeholder':
-        logger.warning(f"Email not sent (no API key): {subject} to {to_email}")
-        return {"success": False, "message": "Email API not configured"}
-    
-    try:
-        params = {
-            "from": f"Obelisco Radical <{SENDER_EMAIL}>",
-            "to": [to_email],
-            "subject": subject,
-            "html": html_content
-        }
-        email = await asyncio.to_thread(resend.Emails.send, params)
-        logger.info(f"Email sent: {subject} to {to_email}")
-        return {"success": True, "email_id": email.get("id")}
-    except Exception as e:
-        logger.error(f"Failed to send email: {str(e)}")
-        return {"success": False, "error": str(e)}
+    """Send email using Emergent Email Service (wrapper for send_email_async)"""
+    result = await send_email_async(to_email, subject, html_content)
+    if result:
+        return {"success": True, "message": "Email sent"}
+    return {"success": False, "message": "No email service configured"}
 
 def get_email_template(template_type: str, data: dict) -> tuple:
     """Generate email subject and HTML content based on template type"""
