@@ -8,10 +8,13 @@ Site de serviços elétricos com:
 4. Sistema de emails de notificação
 5. Portal do cliente completo
 6. Assistente de IA para diagnóstico
+7. **Obelisco Connect** - Sistema unificado de gestão com PWA
 
-## Estado Atual (28/03/2026)
+## Estado Atual (04/08/2026)
 
 ### FUNCIONAL
+
+#### Site Principal
 - [x] Site completo com todas as secções
 - [x] Carrinho de compras funcional
 - [x] **Stripe como único gateway de pagamento**
@@ -21,9 +24,27 @@ Site de serviços elétricos com:
 - [x] **Sistema de pedidos de intervenção**
 - [x] Checkout com dados do cliente
 - [x] Agendamento (Segunda a Sexta, 8h-18h)
-- [x] Verificação de disponibilidade via app externo
-- [x] Criação automática de pedidos no app de gestão
 - [x] Assistente de IA funcional
+
+#### Obelisco Connect - Fase 1 (PWA & Auth) ✅
+- [x] PWA instalável com manifest.json e service-worker
+- [x] Página offline básica
+- [x] Login unificado por roles (CUSTOMER, TECHNICIAN, ADMIN)
+- [x] Login Cliente por email (subscrição ativa)
+- [x] Login Equipa/Admin com email + password
+- [x] Sessões com tokens seguros (7 dias)
+- [x] Página /connect com toggle Cliente/Equipa
+
+#### Obelisco Connect - Fase 2 (APIs Base) ✅
+- [x] Modelos de dados: ServiceRequest, WorkLog, HoursAdjustment
+- [x] Service Requests: criar, listar, atribuir técnico, agendar, status
+- [x] Work Logs: criar (débito automático de horas), listar
+- [x] Admin: listar técnicos, criar técnico, listar subscrições
+- [x] Admin: ajuste manual de horas com histórico
+- [x] Admin: dashboard com estatísticas
+- [x] Customer Dashboard: subscrição, horas, pedidos, work logs
+- [x] Technician Dashboard: pedidos atribuídos, stats, logs recentes
+- [x] Débito automático de horas ao submeter work log
 
 ### PLANOS OBELISCO CARE
 
@@ -33,68 +54,66 @@ Site de serviços elétricos com:
 | **Preventivo** | €699/mês | €6.990/ano (poupa €1.398) | 6h |
 | **Total** ⭐ | €1.290/mês | €12.900/ano (poupa €2.580) | 12h |
 
-### PORTAL DO CLIENTE (Área Cliente)
-- Login por email
-- Ver subscrições activas
-- Barra de progresso de horas usadas/disponíveis
-- Pedir intervenção técnica
-- Gerir pagamento via Stripe Portal
-- Ver histórico de intervenções
+### ENDPOINTS OBELISCO CONNECT
 
-### SISTEMA DE EMAILS
-- **Email de boas-vindas** ao subscrever plano
-- **Notificação ao admin** (obeliscoradical@gmail.com):
-  - Nova subscrição
-  - Nova compra
-  - Novo pedido de intervenção
+**Auth**
+- `POST /api/connect/login/customer` - Login cliente (email)
+- `POST /api/connect/login/staff` - Login equipa (email + password)
+- `GET /api/connect/me` - Utilizador atual
+- `POST /api/connect/logout` - Terminar sessão
 
-**NOTA:** RESEND_API_KEY está vazia no .env. Para ativar emails:
-1. Criar conta em resend.com
-2. Obter API key
-3. Adicionar RESEND_API_KEY no .env
+**Service Requests**
+- `POST /api/connect/service-requests` - Criar pedido
+- `GET /api/connect/service-requests` - Listar pedidos
+- `GET /api/connect/service-requests/{id}` - Ver pedido
+- `PUT /api/connect/service-requests/{id}/assign` - Atribuir técnico
+- `PUT /api/connect/service-requests/{id}/schedule` - Agendar
+- `PUT /api/connect/service-requests/{id}/status` - Atualizar status
 
-### ENDPOINTS STRIPE
-
-**Pagamento Único**
-- `POST /api/stripe/create-checkout-session`
-- `GET /api/stripe/session/{session_id}`
-- `POST /api/stripe/webhook`
-- `GET /api/stripe/config`
-
-**Subscrições**
-- `POST /api/stripe/create-subscription-session`
-- `GET /api/stripe/plans`
-
-**Portal do Cliente**
-- `GET /api/customer/subscriptions?email=`
-- `GET /api/customer/subscription/{id}`
-- `GET /api/customer/interventions?email=`
-- `POST /api/customer/intervention`
-- `POST /api/customer/portal-session`
-- `GET /api/customer/payments?email=`
+**Work Logs**
+- `POST /api/connect/work-logs` - Criar work log (débito horas)
+- `GET /api/connect/work-logs` - Listar work logs
 
 **Admin**
-- `POST /api/admin/intervention/{id}/complete`
+- `GET /api/connect/admin/technicians` - Listar técnicos
+- `POST /api/connect/admin/technicians` - Criar técnico
+- `GET /api/connect/admin/subscriptions` - Listar subscrições
+- `POST /api/connect/admin/hours-adjustment` - Ajustar horas
+- `GET /api/connect/admin/hours-adjustments` - Histórico ajustes
+- `GET /api/connect/admin/stats` - Estatísticas
+
+**Dashboards**
+- `GET /api/connect/customer/dashboard` - Dashboard cliente
+- `GET /api/connect/technician/dashboard` - Dashboard técnico
 
 ## URLs
 - **Preview**: https://obelisco-payments.preview.emergentagent.com
-- **Produção**: https://form-payments.emergent.host
+- **Connect**: https://obelisco-payments.preview.emergentagent.com/connect
 
-## Testes
-- Backend: 100% (34/34 testes)
-- Frontend E2E: 100% (36/36 testes)
+## Testes (iteration 7)
+- Backend: 100% (82/82 testes)
+- Frontend E2E: 100% (23/23 testes)
+- Regressão: 100% (105/105 testes)
 
 ## Próximos Passos
 
-### P1 - Para Ativar
+### P0 - Fase 3: Dashboards Completos (Próximo)
+1. Dashboard Cliente completo em /connect/client
+2. Dashboard Técnico em /connect/tech
+3. Dashboard Admin em /connect/admin
+4. **Migrar UI do app Obelisco-Tecnicos** (zip fornecido)
+
+### P1 - Fase 4: Work Logs Avançados
+1. Checklist de serviço
+2. Temporizador de tempo de serviço
+3. Upload de fotos/vídeos
+4. **Assinatura digital do cliente**
+5. Débito de horas em tempo real
+
+### P2 - Ativação Produção
 1. Reclamar conta Stripe sandbox → produção
 2. Configurar RESEND_API_KEY para emails
-3. Configurar webhook: `https://form-payments.emergent.host/api/stripe/webhook`
-
-### P2 - Melhorias Futuras
-- Dashboard admin para ver todas as subscrições
-- Histórico detalhado de intervenções
-- Refatorar App.js (ficheiro grande)
+3. Configurar webhook Stripe
 
 ## Contactos
 - WhatsApp: +351 911 132 401
@@ -103,12 +122,25 @@ Site de serviços elétricos com:
 
 ## Notas Técnicas
 
-### Cartão de Teste
+### Cartão de Teste Stripe
 - Número: 4242 4242 4242 4242
 - Validade: qualquer data futura
 - CVC: qualquer 3 dígitos
 
-### Stripe Products
-- essencial_monthly/annual
-- preventivo_monthly/annual
-- total_monthly/annual
+### Arquitetura
+```
+/app
+├── backend/
+│   ├── server.py      # FastAPI (2271 linhas)
+│   └── .env           # MONGO_URL, Stripe, Resend, LLM keys
+├── frontend/
+│   ├── src/
+│   │   ├── App.js     # Site principal (monolítico)
+│   │   └── pages/ConnectLogin.js
+│   └── public/
+│       ├── manifest.json
+│       └── service-worker.js
+└── memory/
+    ├── PRD.md
+    └── test_credentials.md
+```
