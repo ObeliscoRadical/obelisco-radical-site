@@ -104,7 +104,7 @@ const ConnectClientDashboard = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
     } catch (e) {
-      // Ignore logout errors - clear local storage anyway
+      console.warn('Logout request failed, clearing local session anyway:', e.message);
     }
     localStorage.removeItem('connect_token');
     localStorage.removeItem('connect_user');

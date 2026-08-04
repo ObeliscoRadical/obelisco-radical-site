@@ -900,8 +900,10 @@ async def list_technicians(request: Request):
     return {"technicians": technicians}
 
 @api_router.post("/connect/admin/technicians")
-async def create_technician(name: str, email: str, password: str, phone: Optional[str] = None, specialties: List[str] = [], request: Request = None):
+async def create_technician(name: str, email: str, password: str, phone: Optional[str] = None, specialties: Optional[List[str]] = None, request: Request = None):
     """Admin creates a new technician"""
+    if specialties is None:
+        specialties = []
     session = await get_user_from_token(request)
     
     if session.get("user_type") != "ADMIN":

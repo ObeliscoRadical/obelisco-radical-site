@@ -6,16 +6,15 @@ import pytest
 import requests
 import os
 import uuid
+from conftest import BASE_URL, TEST_CUSTOMER_EMAIL, TEST_ADMIN_EMAIL, TEST_ADMIN_PASSWORD, TEST_TECHNICIAN_EMAIL, TEST_TECHNICIAN_PASSWORD
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
-
-# Test credentials
-CUSTOMER_EMAIL = "teste.obelisco@gmail.com"
+# Use credentials from conftest
+CUSTOMER_EMAIL = TEST_CUSTOMER_EMAIL
 CUSTOMER_SUBSCRIPTION_ID = "58e8f8e8-0cf8-4bdf-8c25-b16ef8967a3c"
-ADMIN_EMAIL = "admin@obelisco.pt"
-ADMIN_PASSWORD = "admin123"
-TECHNICIAN_EMAIL = "tecnico@obelisco.pt"
-TECHNICIAN_PASSWORD = "tech123"
+ADMIN_EMAIL = TEST_ADMIN_EMAIL
+ADMIN_PASSWORD = TEST_ADMIN_PASSWORD
+TECHNICIAN_EMAIL = TEST_TECHNICIAN_EMAIL
+TECHNICIAN_PASSWORD = TEST_TECHNICIAN_PASSWORD
 
 
 @pytest.fixture
