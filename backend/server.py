@@ -1,5 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -8,6 +8,8 @@ import logging
 import asyncio
 import hashlib
 import secrets
+import io
+import base64
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -21,6 +23,13 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request as GoogleRequest
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import cm
+from reportlab.lib.colors import HexColor, black, white
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from pywebpush import webpush, WebPushException
+from py_vapid import Vapid
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -38,9 +47,23 @@ STRIPE_WEBHOOK_SECRET = os.environ.get('STRIPE_WEBHOOK_SECRET', '')
 # Resend Email Configuration
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
 SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
-ADMIN_EMAIL = 'obeliscoradical@gmail.com'
-if RESEND_API_KEY:
+ADMIN_EMAIL = os.environ.get('ADMIN_NOTIFICATION_EMAIL', 'obeliscoradical@gmail.com')
+if RESEND_API_KEY and RESEND_API_KEY != 're_123_test_placeholder':
     resend.api_key = RESEND_API_KEY
+
+# Web Push (VAPID) Configuration
+VAPID_PRIVATE_KEY_PATH = os.environ.get('VAPID_PRIVATE_KEY_PATH', '/tmp/vapid_private.pem')
+VAPID_PUBLIC_KEY_PATH = os.environ.get('VAPID_PUBLIC_KEY_PATH', '/tmp/vapid_public.pem')
+VAPID_APPLICATION_SERVER_KEY = os.environ.get('VAPID_APPLICATION_SERVER_KEY', '')
+VAPID_CLAIMS_EMAIL = os.environ.get('VAPID_CLAIMS_EMAIL', 'mailto:obeliscoradical@gmail.com')
+
+# Initialize VAPID
+vapid_instance = None
+if os.path.exists(VAPID_PRIVATE_KEY_PATH):
+    try:
+        vapid_instance = Vapid.from_file(VAPID_PRIVATE_KEY_PATH)
+    except Exception as e:
+        logging.warning(f"Could not load VAPID keys: {e}")
 
 # Emergent LLM Key for AI Assistant
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
@@ -570,6 +593,11 @@ async def assign_service_request(request_id: str, technician_id: str, request: R
     if not technician:
         raise HTTPException(status_code=404, detail="Tecnico nao encontrado")
     
+    # Get service request details
+    service_req = await db.service_requests.find_one({"id": request_id}, {"_id": 0})
+    if not service_req:
+        raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
     # Update service request
     result = await db.service_requests.update_one(
         {"id": request_id},
@@ -583,6 +611,33 @@ async def assign_service_request(request_id: str, technician_id: str, request: R
     
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Pedido nao encontrado")
+    
+    # Send email notification to technician
+    tech_email_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
+        <h2 style="color: #facc15;">Novo Trabalho Atribuido</h2>
+        <p>Ola {technician.get('name')},</p>
+        <p>Foi-lhe atribuido um novo trabalho:</p>
+        <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p><strong>Cliente:</strong> {service_req.get('customer_name', 'N/A')}</p>
+            <p><strong>Tipo:</strong> {service_req.get('request_type', 'N/A')}</p>
+            <p><strong>Urgencia:</strong> <span style="color: {'#ef4444' if service_req.get('urgency') == 'urgent' else '#22c55e'};">{service_req.get('urgency', 'normal').upper()}</span></p>
+            <p><strong>Morada:</strong> {service_req.get('address', 'Nao especificada')}</p>
+            <p><strong>Descricao:</strong> {service_req.get('description', 'Sem descricao')}</p>
+        </div>
+        <a href="https://obelisco-payments.preview.emergentagent.com/connect/tech" style="display: inline-block; background: #facc15; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; margin: 20px 0;">Ver Trabalhos</a>
+    </div>
+    """
+    await send_email_async(technician.get('email'), f"Novo Trabalho Atribuido - {service_req.get('customer_name', 'Cliente')}", tech_email_html)
+    
+    # Send push notification to technician
+    await send_push_notification(
+        user_id=technician_id,
+        user_type="TECHNICIAN",
+        title="Novo Trabalho Atribuido",
+        body=f"{service_req.get('customer_name', 'Cliente')} - {service_req.get('request_type', 'Servico')}",
+        url="/connect/tech"
+    )
     
     return {"success": True, "message": f"Pedido atribuido a {technician.get('name')}"}
 
@@ -707,6 +762,28 @@ async def create_work_log(data: WorkLogCreate, request: Request):
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
+    
+    # Calculate new hours available
+    new_hours_available = hours_available - data.hours_spent
+    
+    # Send email notification to customer
+    customer_email_html = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #18181b; color: #fff; padding: 40px; border-radius: 16px;">
+        <h2 style="color: #22c55e;">Servico Concluido</h2>
+        <p>Ola {service_req.get('customer_name', 'Cliente')},</p>
+        <p>O seu servico foi concluido com sucesso.</p>
+        <div style="background: #27272a; border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <p><strong>Tecnico:</strong> {technician.get('name', 'N/A') if technician else 'N/A'}</p>
+            <p><strong>Horas Utilizadas:</strong> <span style="color: #facc15;">{data.hours_spent}h</span></p>
+            <p><strong>Saldo Restante:</strong> <span style="color: #22c55e;">{new_hours_available:.1f}h</span></p>
+        </div>
+        <p><strong>Trabalho Realizado:</strong></p>
+        <p style="background: #3f3f46; padding: 10px; border-radius: 8px;">{data.work_description}</p>
+        <a href="https://obelisco-payments.preview.emergentagent.com/connect/client" style="display: inline-block; background: #facc15; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; margin: 20px 0;">Ver Historico</a>
+        <p style="color: #71717a; font-size: 12px;">Obrigado por confiar na Obelisco Radical!</p>
+    </div>
+    """
+    await send_email_async(service_req.get('customer_email'), "Servico Concluido - Obelisco Radical", customer_email_html)
     
     logger.info(f"Work log created: {work_log.id}, hours deducted: {data.hours_spent}")
     
@@ -1010,13 +1087,13 @@ async def get_status_checks():
 
 async def send_email_async(to_email: str, subject: str, html_content: str):
     """Send email using Resend (async wrapper)"""
-    if not RESEND_API_KEY:
+    if not RESEND_API_KEY or RESEND_API_KEY == 're_123_test_placeholder':
         logger.warning("RESEND_API_KEY not configured, skipping email")
         return None
     
     try:
         params = {
-            "from": SENDER_EMAIL,
+            "from": f"Obelisco Radical <{SENDER_EMAIL}>",
             "to": [to_email],
             "subject": subject,
             "html": html_content
@@ -2264,6 +2341,469 @@ async def get_booked_slots(start_date: str, end_date: str):
     except Exception as e:
         logger.error(f"Get booked slots error: {str(e)}")
         return {"slots": [], "error": str(e)}
+
+# ============ EMAIL NOTIFICATIONS ============
+
+async def send_email_notification(to_email: str, subject: str, html_content: str):
+    """Send email using Resend API"""
+    if not RESEND_API_KEY or RESEND_API_KEY == 're_123_test_placeholder':
+        logger.warning(f"Email not sent (no API key): {subject} to {to_email}")
+        return {"success": False, "message": "Email API not configured"}
+    
+    try:
+        params = {
+            "from": f"Obelisco Radical <{SENDER_EMAIL}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content
+        }
+        email = await asyncio.to_thread(resend.Emails.send, params)
+        logger.info(f"Email sent: {subject} to {to_email}")
+        return {"success": True, "email_id": email.get("id")}
+    except Exception as e:
+        logger.error(f"Failed to send email: {str(e)}")
+        return {"success": False, "error": str(e)}
+
+def get_email_template(template_type: str, data: dict) -> tuple:
+    """Generate email subject and HTML content based on template type"""
+    base_style = """
+        <style>
+            body { font-family: Arial, sans-serif; background: #09090B; color: #fff; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #FFD700; padding: 20px; text-align: center; }
+            .header h1 { color: #000; margin: 0; font-size: 24px; }
+            .content { background: #18181B; padding: 30px; border: 1px solid #27272A; }
+            .footer { text-align: center; padding: 20px; color: #71717A; font-size: 12px; }
+            .btn { display: inline-block; background: #FFD700; color: #000; padding: 12px 24px; text-decoration: none; font-weight: bold; margin: 20px 0; }
+            .info-box { background: #27272A; padding: 15px; margin: 15px 0; border-left: 3px solid #FFD700; }
+        </style>
+    """
+    
+    if template_type == "new_request_admin":
+        subject = f"⚡ Novo Pedido de Servico - {data.get('urgency', 'Normal').upper()}"
+        html = f"""
+        <html><head>{base_style}</head><body>
+        <div class="container">
+            <div class="header"><h1>⚡ OBELISCO RADICAL</h1></div>
+            <div class="content">
+                <h2>Novo Pedido de Servico</h2>
+                <div class="info-box">
+                    <p><strong>Cliente:</strong> {data.get('customer_name', 'N/A')}</p>
+                    <p><strong>Email:</strong> {data.get('customer_email', 'N/A')}</p>
+                    <p><strong>Tipo:</strong> {data.get('request_type', 'N/A')}</p>
+                    <p><strong>Urgencia:</strong> {data.get('urgency', 'Normal')}</p>
+                </div>
+                <p><strong>Descricao:</strong></p>
+                <p>{data.get('description', 'Sem descricao')}</p>
+                <a href="https://obelisco-payments.preview.emergentagent.com/connect/admin" class="btn">Ver no Painel Admin</a>
+            </div>
+            <div class="footer">Obelisco Radical - Servicos Eletricos</div>
+        </div>
+        </body></html>
+        """
+        return subject, html
+    
+    elif template_type == "request_assigned_tech":
+        subject = f"⚡ Novo Trabalho Atribuido - {data.get('customer_name', 'Cliente')}"
+        html = f"""
+        <html><head>{base_style}</head><body>
+        <div class="container">
+            <div class="header"><h1>⚡ OBELISCO RADICAL</h1></div>
+            <div class="content">
+                <h2>Novo Trabalho Atribuido</h2>
+                <p>Ola {data.get('technician_name', 'Tecnico')},</p>
+                <p>Foi-lhe atribuido um novo trabalho:</p>
+                <div class="info-box">
+                    <p><strong>Cliente:</strong> {data.get('customer_name', 'N/A')}</p>
+                    <p><strong>Tipo:</strong> {data.get('request_type', 'N/A')}</p>
+                    <p><strong>Urgencia:</strong> {data.get('urgency', 'Normal')}</p>
+                    <p><strong>Morada:</strong> {data.get('address', 'N/A')}</p>
+                </div>
+                <p><strong>Descricao:</strong></p>
+                <p>{data.get('description', 'Sem descricao')}</p>
+                <a href="https://obelisco-payments.preview.emergentagent.com/connect/tech" class="btn">Ver Trabalhos</a>
+            </div>
+            <div class="footer">Obelisco Radical - Servicos Eletricos</div>
+        </div>
+        </body></html>
+        """
+        return subject, html
+    
+    elif template_type == "work_completed_client":
+        subject = f"⚡ Servico Concluido - Obelisco Radical"
+        html = f"""
+        <html><head>{base_style}</head><body>
+        <div class="container">
+            <div class="header"><h1>⚡ OBELISCO RADICAL</h1></div>
+            <div class="content">
+                <h2>Servico Concluido</h2>
+                <p>Ola {data.get('customer_name', 'Cliente')},</p>
+                <p>O seu servico foi concluido com sucesso.</p>
+                <div class="info-box">
+                    <p><strong>Tecnico:</strong> {data.get('technician_name', 'N/A')}</p>
+                    <p><strong>Horas Utilizadas:</strong> {data.get('hours_spent', 0)}h</p>
+                    <p><strong>Saldo Restante:</strong> {data.get('hours_remaining', 0)}h</p>
+                </div>
+                <p><strong>Trabalho Realizado:</strong></p>
+                <p>{data.get('work_description', 'N/A')}</p>
+                <a href="https://obelisco-payments.preview.emergentagent.com/connect/client" class="btn">Ver Historico</a>
+            </div>
+            <div class="footer">Obrigado por confiar na Obelisco Radical!</div>
+        </div>
+        </body></html>
+        """
+        return subject, html
+    
+    return "Notificacao Obelisco", "<p>Notificacao do sistema.</p>"
+
+@api_router.post("/notifications/send-email")
+async def send_manual_email(to: str, subject: str, message: str, request: Request):
+    """Admin endpoint to send manual email"""
+    session = await get_user_from_token(request)
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins podem enviar emails")
+    
+    html = f"<html><body><h2>{subject}</h2><p>{message}</p></body></html>"
+    result = await send_email_notification(to, subject, html)
+    return result
+
+# ============ PUSH NOTIFICATIONS ============
+
+class PushSubscription(BaseModel):
+    endpoint: str
+    keys: dict
+    user_id: str
+    user_type: str  # TECHNICIAN, ADMIN, CUSTOMER
+
+@api_router.get("/push/vapid-public-key")
+async def get_vapid_public_key():
+    """Get VAPID public key for frontend"""
+    return {"vapid_public_key": VAPID_APPLICATION_SERVER_KEY}
+
+@api_router.post("/push/subscribe")
+async def subscribe_push(subscription: PushSubscription):
+    """Store push subscription for a user"""
+    sub_doc = {
+        "id": str(uuid.uuid4()),
+        "user_id": subscription.user_id,
+        "user_type": subscription.user_type,
+        "endpoint": subscription.endpoint,
+        "keys": subscription.keys,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    # Remove existing subscription for this endpoint
+    await db.push_subscriptions.delete_many({"endpoint": subscription.endpoint})
+    await db.push_subscriptions.insert_one(sub_doc)
+    
+    return {"success": True, "message": "Subscricao registada"}
+
+@api_router.delete("/push/unsubscribe")
+async def unsubscribe_push(endpoint: str):
+    """Remove push subscription"""
+    await db.push_subscriptions.delete_many({"endpoint": endpoint})
+    return {"success": True}
+
+async def send_push_notification(user_id: str = None, user_type: str = None, title: str = "", body: str = "", url: str = ""):
+    """Send push notification to user(s)"""
+    if not vapid_instance:
+        logger.warning("Push notification not sent: VAPID not configured")
+        return {"success": False, "message": "Push not configured"}
+    
+    query = {}
+    if user_id:
+        query["user_id"] = user_id
+    if user_type:
+        query["user_type"] = user_type
+    
+    subscriptions = await db.push_subscriptions.find(query, {"_id": 0}).to_list(100)
+    
+    if not subscriptions:
+        return {"success": False, "message": "No subscriptions found"}
+    
+    import json
+    payload = json.dumps({
+        "title": title,
+        "body": body,
+        "url": url,
+        "icon": "/icon-192.png"
+    })
+    
+    sent_count = 0
+    for sub in subscriptions:
+        try:
+            webpush(
+                subscription_info={
+                    "endpoint": sub["endpoint"],
+                    "keys": sub["keys"]
+                },
+                data=payload,
+                vapid_private_key=VAPID_PRIVATE_KEY_PATH,
+                vapid_claims={"sub": VAPID_CLAIMS_EMAIL}
+            )
+            sent_count += 1
+        except WebPushException as e:
+            logger.error(f"Push failed: {e}")
+            if e.response and e.response.status_code == 410:
+                # Subscription expired, remove it
+                await db.push_subscriptions.delete_one({"endpoint": sub["endpoint"]})
+    
+    return {"success": True, "sent": sent_count}
+
+# ============ FILE STORAGE (GridFS) ============
+
+from motor.motor_asyncio import AsyncIOMotorGridFSBucket
+
+@api_router.post("/files/upload")
+async def upload_file(request: Request):
+    """Upload file to GridFS storage"""
+    session = await get_user_from_token(request)
+    
+    body = await request.json()
+    file_data = body.get("file_data")  # base64 encoded
+    file_name = body.get("file_name", "file")
+    file_type = body.get("file_type", "image/png")
+    context = body.get("context", "general")  # worklog, signature, etc.
+    context_id = body.get("context_id", "")
+    
+    if not file_data:
+        raise HTTPException(status_code=400, detail="No file data provided")
+    
+    # Decode base64
+    try:
+        if "base64," in file_data:
+            file_data = file_data.split("base64,")[1]
+        file_bytes = base64.b64decode(file_data)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid base64 data: {e}")
+    
+    # Store in GridFS
+    fs = AsyncIOMotorGridFSBucket(db)
+    file_id = str(uuid.uuid4())
+    
+    metadata = {
+        "file_id": file_id,
+        "original_name": file_name,
+        "content_type": file_type,
+        "context": context,
+        "context_id": context_id,
+        "uploaded_by": session.get("email", "unknown"),
+        "uploaded_at": datetime.now(timezone.utc).isoformat()
+    }
+    
+    grid_id = await fs.upload_from_stream(
+        file_id,
+        io.BytesIO(file_bytes),
+        metadata=metadata
+    )
+    
+    return {
+        "success": True,
+        "file_id": file_id,
+        "url": f"/api/files/{file_id}"
+    }
+
+@api_router.get("/files/{file_id}")
+async def get_file(file_id: str):
+    """Retrieve file from GridFS"""
+    fs = AsyncIOMotorGridFSBucket(db)
+    
+    try:
+        grid_out = await fs.open_download_stream_by_name(file_id)
+        content = await grid_out.read()
+        content_type = grid_out.metadata.get("content_type", "application/octet-stream") if grid_out.metadata else "application/octet-stream"
+        
+        return StreamingResponse(
+            io.BytesIO(content),
+            media_type=content_type,
+            headers={"Content-Disposition": f"inline; filename={file_id}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=404, detail="File not found")
+
+@api_router.delete("/files/{file_id}")
+async def delete_file(file_id: str, request: Request):
+    """Delete file from GridFS"""
+    session = await get_user_from_token(request)
+    
+    fs = AsyncIOMotorGridFSBucket(db)
+    
+    try:
+        # Find the file first
+        cursor = fs.find({"filename": file_id})
+        async for grid_file in cursor:
+            await fs.delete(grid_file._id)
+            return {"success": True, "message": "File deleted"}
+        
+        raise HTTPException(status_code=404, detail="File not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============ PDF REPORTS ============
+
+@api_router.get("/reports/monthly/{subscription_id}")
+async def generate_monthly_report(subscription_id: str, month: int = None, year: int = None, request: Request = None):
+    """Generate PDF report for monthly hours consumption"""
+    
+    # Default to current month if not specified
+    now = datetime.now()
+    if not month:
+        month = now.month
+    if not year:
+        year = now.year
+    
+    # Get subscription
+    subscription = await db.subscriptions.find_one({"id": subscription_id}, {"_id": 0})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    # Get work logs for the month
+    start_date = datetime(year, month, 1)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1)
+    else:
+        end_date = datetime(year, month + 1, 1)
+    
+    work_logs = await db.work_logs.find({
+        "subscription_id": subscription_id,
+        "created_at": {
+            "$gte": start_date.isoformat(),
+            "$lt": end_date.isoformat()
+        }
+    }, {"_id": 0}).to_list(100)
+    
+    # Get adjustments for the month
+    adjustments = await db.hours_adjustments.find({
+        "subscription_id": subscription_id,
+        "created_at": {
+            "$gte": start_date.isoformat(),
+            "$lt": end_date.isoformat()
+        }
+    }, {"_id": 0}).to_list(100)
+    
+    # Generate PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1*cm, bottomMargin=1*cm)
+    
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=HexColor('#FFD700'),
+        spaceAfter=20
+    )
+    
+    elements = []
+    
+    # Title
+    elements.append(Paragraph("⚡ OBELISCO RADICAL", title_style))
+    elements.append(Paragraph(f"Relatorio Mensal - {month:02d}/{year}", styles['Heading2']))
+    elements.append(Spacer(1, 20))
+    
+    # Customer Info
+    elements.append(Paragraph(f"<b>Cliente:</b> {subscription.get('customer_name', 'N/A')}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Email:</b> {subscription.get('customer_email', 'N/A')}", styles['Normal']))
+    elements.append(Paragraph(f"<b>Plano:</b> {subscription.get('plan_name', 'N/A')}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+    
+    # Hours Summary
+    total_hours_used = sum(log.get('hours_spent', 0) for log in work_logs)
+    total_adjustments = sum(adj.get('hours_adjusted', 0) for adj in adjustments)
+    
+    summary_data = [
+        ['Resumo de Horas', ''],
+        ['Horas Incluidas', f"{subscription.get('hours_included', 0)}h"],
+        ['Horas Usadas (mes)', f"{total_hours_used:.1f}h"],
+        ['Ajustes', f"{total_adjustments:+.1f}h"],
+        ['Saldo Atual', f"{subscription.get('hours_included', 0) - subscription.get('hours_used', 0):.1f}h"]
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[10*cm, 5*cm])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), HexColor('#FFD700')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), black),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), HexColor('#27272A')),
+        ('TEXTCOLOR', (0, 1), (-1, -1), white),
+        ('GRID', (0, 0), (-1, -1), 1, HexColor('#3F3F46')),
+        ('PADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 30))
+    
+    # Work Logs Table
+    if work_logs:
+        elements.append(Paragraph("Intervencoes do Mes", styles['Heading3']))
+        
+        log_data = [['Data', 'Tecnico', 'Descricao', 'Horas']]
+        for log in work_logs:
+            date_str = log.get('created_at', '')[:10]
+            log_data.append([
+                date_str,
+                log.get('technician_name', 'N/A'),
+                log.get('work_description', 'N/A')[:40] + '...' if len(log.get('work_description', '')) > 40 else log.get('work_description', 'N/A'),
+                f"{log.get('hours_spent', 0)}h"
+            ])
+        
+        log_table = Table(log_data, colWidths=[2.5*cm, 3*cm, 8*cm, 2*cm])
+        log_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), HexColor('#FFD700')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), black),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 9),
+            ('BACKGROUND', (0, 1), (-1, -1), HexColor('#18181B')),
+            ('TEXTCOLOR', (0, 1), (-1, -1), white),
+            ('GRID', (0, 0), (-1, -1), 1, HexColor('#3F3F46')),
+            ('PADDING', (0, 0), (-1, -1), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        elements.append(log_table)
+    else:
+        elements.append(Paragraph("Nenhuma intervencao registada neste mes.", styles['Normal']))
+    
+    # Footer
+    elements.append(Spacer(1, 40))
+    elements.append(Paragraph("Obelisco Radical - Servicos Eletricos", styles['Normal']))
+    elements.append(Paragraph("obeliscoradical@gmail.com | +351 911 132 401", styles['Normal']))
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    filename = f"relatorio_obelisco_{month:02d}_{year}.pdf"
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@api_router.get("/reports/subscription-summary/{subscription_id}")
+async def get_subscription_summary(subscription_id: str, request: Request):
+    """Get subscription summary with all work logs and adjustments"""
+    
+    subscription = await db.subscriptions.find_one({"id": subscription_id}, {"_id": 0})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    work_logs = await db.work_logs.find(
+        {"subscription_id": subscription_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    adjustments = await db.hours_adjustments.find(
+        {"subscription_id": subscription_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    
+    return {
+        "subscription": subscription,
+        "work_logs": work_logs,
+        "adjustments": adjustments,
+        "total_hours_used": sum(log.get('hours_spent', 0) for log in work_logs),
+        "total_adjustments": sum(adj.get('hours_adjusted', 0) for adj in adjustments)
+    }
 
 # Include the router in the main app
 app.include_router(api_router)

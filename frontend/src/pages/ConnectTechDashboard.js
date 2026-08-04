@@ -4,9 +4,10 @@ import {
   Zap, Clock, AlertCircle, CheckCircle, Loader2, LogOut, Play, Pause, Square,
   Calendar, FileText, User, Camera, MapPin, ChevronRight, X, Upload,
   ClipboardList, History, Settings, CheckSquare, Timer, Image, Video,
-  Phone, Navigation, Edit2, Trash2, RefreshCw
+  Phone, Navigation, Edit2, Trash2, RefreshCw, Bell
 } from 'lucide-react';
 import SignaturePad from '../components/SignaturePad';
+import { subscribeToPush, isPushSubscribed } from '../utils/pushNotifications';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -19,6 +20,7 @@ const ConnectTechDashboard = () => {
   const [activeTab, setActiveTab] = useState('jobs');
   const [selectedJob, setSelectedJob] = useState(null);
   const [showWorkLog, setShowWorkLog] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
   
   // Timer state
   const [timerRunning, setTimerRunning] = useState(false);
@@ -58,7 +60,23 @@ const ConnectTechDashboard = () => {
       return;
     }
     fetchDashboard();
+    checkPushStatus();
   }, [token, navigate]);
+
+  const checkPushStatus = async () => {
+    const enabled = await isPushSubscribed();
+    setPushEnabled(enabled);
+  };
+
+  const handleEnablePush = async () => {
+    const stored = localStorage.getItem('connect_user');
+    if (!stored) return;
+    const userData = JSON.parse(stored);
+    const result = await subscribeToPush(userData.id || userData.email, 'TECHNICIAN');
+    if (result.success) {
+      setPushEnabled(true);
+    }
+  };
 
   useEffect(() => {
     if (timerRunning) {
@@ -871,6 +889,32 @@ const ConnectTechDashboard = () => {
                   <p className="text-[#FFD700] font-bold uppercase">{user?.role}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Push Notifications */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-[#FFD700]" />
+                Notificacoes
+              </h3>
+              {pushEnabled ? (
+                <div className="flex items-center gap-3 text-green-400">
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Notificacoes ativadas - Recebera alertas de novos trabalhos</span>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-zinc-400 text-sm mb-3">Ative as notificacoes para receber alertas quando lhe for atribuido um novo trabalho.</p>
+                  <button
+                    onClick={handleEnablePush}
+                    className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2"
+                    data-testid="enable-push-tech"
+                  >
+                    <Bell className="w-5 h-5" />
+                    Ativar Notificacoes
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

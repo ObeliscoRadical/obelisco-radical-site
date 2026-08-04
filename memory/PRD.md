@@ -26,104 +26,93 @@ Site de serviços elétricos com:
 - [x] Agendamento (Segunda a Sexta, 8h-18h)
 - [x] Assistente de IA funcional
 
-#### Obelisco Connect - Fase 1 (PWA & Auth) ✅
+#### Obelisco Connect - Fase 1 a 4 ✅
 - [x] PWA instalável com manifest.json e service-worker
-- [x] Página offline básica
 - [x] Login unificado por roles (CUSTOMER, TECHNICIAN, ADMIN)
-- [x] Login Cliente por email (subscrição ativa)
-- [x] Login Equipa/Admin com email + password
-- [x] Sessões com tokens seguros (7 dias)
-- [x] Página /connect com toggle Cliente/Equipa
+- [x] Dashboards completos para Cliente, Técnico e Admin
+- [x] Timer de serviço, checklist, upload de fotos/vídeos
+- [x] Assinatura digital do cliente
+- [x] Débito automático de horas
 
-#### Obelisco Connect - Fase 2 (APIs Base) ✅
-- [x] Modelos de dados: ServiceRequest, WorkLog, HoursAdjustment
-- [x] Service Requests: criar, listar, atribuir técnico, agendar, status
-- [x] Work Logs: criar (débito automático de horas), listar
-- [x] Admin: listar técnicos, criar técnico, listar subscrições
-- [x] Admin: ajuste manual de horas com histórico
-- [x] Admin: dashboard com estatísticas
-- [x] Customer Dashboard API: subscrição, horas, pedidos, work logs
-- [x] Technician Dashboard API: pedidos atribuídos, stats, logs recentes
+#### Novas Funcionalidades Implementadas ✅
 
-#### Obelisco Connect - Fase 3 (Dashboards Visuais) ✅
-- [x] **Dashboard Cliente** (`/connect/client`)
-  - Saldo de horas com barra de progresso
-  - Criar novo pedido de serviço
-  - Ver pedidos recentes e histórico
-  - Detalhes da subscrição
-  - Tabs: Resumo, Pedidos, Histórico, Conta
-  - Navegação mobile com bottom nav
-  
-- [x] **Dashboard Admin** (`/connect/admin`)
-  - Stats cards: subscrições ativas, pedidos pendentes, técnicos, trabalhos
-  - Gestão completa de pedidos (atribuir, alterar status)
-  - Gestão de técnicos (criar, listar)
-  - Gestão de subscrições com ajuste manual de horas
-  - Histórico de ajustes de horas
-  - Tabs: Visão Geral, Pedidos, Técnicos, Subscrições, Ajustes
+**Emails Automáticos:**
+- [x] Email ao admin quando novo pedido é criado
+- [x] Email ao técnico quando trabalho é atribuído
+- [x] Email ao cliente quando trabalho é concluído
+- [x] Usando Resend API com templates HTML styled
 
-#### Obelisco Connect - Fase 4 (App Técnicos Migrado) ✅
-- [x] **Dashboard Técnico** (`/connect/tech`)
-  - Lista de trabalhos atribuídos com urgência e estado
-  - Iniciar trabalho com **temporizador em tempo real**
-  - **Checklist de serviço** (6 itens predefinidos)
-  - **Upload de fotos** (até 10 fotos)
-  - **Upload de vídeos** (até 3 vídeos)
-  - **Assinatura digital do cliente** (canvas touch)
-  - Navegação GPS para morada do cliente
-  - Ligar diretamente para cliente
-  - Submissão de work log com débito automático de horas
-  - Tabs: Trabalhos, Histórico, Perfil
-  
-- [x] **Componente SignaturePad** reutilizável
-  - Canvas de assinatura com touch support
-  - Limpar/Cancelar/Confirmar
-  - Export para base64 PNG
+**Push Notifications:**
+- [x] Web Push API nativo (sem Firebase)
+- [x] VAPID keys configuradas
+- [x] Service Worker atualizado para notificações
+- [x] Botão para ativar notificações nos dashboards
+- [x] Push enviado ao técnico quando trabalho é atribuído
 
-### PLANOS OBELISCO CARE
+**File Storage (GridFS):**
+- [x] Upload de ficheiros para MongoDB GridFS
+- [x] Endpoints: POST /files/upload, GET /files/{id}, DELETE /files/{id}
+- [x] Suporte para fotos, vídeos e assinaturas
 
-| Plano | Mensal | Anual (2 meses grátis) | Horas/Mês |
-|-------|--------|------------------------|-----------|
-| **Essencial** | €349/mês | €3.490/ano (poupa €698) | 3h |
-| **Preventivo** | €699/mês | €6.990/ano (poupa €1.398) | 6h |
-| **Total** ⭐ | €1.290/mês | €12.900/ano (poupa €2.580) | 12h |
+**Relatórios PDF:**
+- [x] Endpoint: GET /reports/monthly/{subscription_id}
+- [x] PDF com ReportLab: resumo de horas, work logs, ajustes
+- [x] Download direto do dashboard do cliente
+- [x] Estilo Obelisco (preto/dourado)
 
-### ROTAS OBELISCO CONNECT
+### ENDPOINTS NOVOS
 
-| Rota | Componente | Acesso |
-|------|------------|--------|
-| `/connect` | ConnectLogin | Público |
-| `/connect/client` | ConnectClientDashboard | CUSTOMER |
-| `/connect/tech` | ConnectTechDashboard | TECHNICIAN |
-| `/connect/admin` | ConnectAdminDashboard | ADMIN |
+**Emails:**
+- `POST /api/notifications/send-email` - Email manual (admin)
+
+**Push:**
+- `GET /api/push/vapid-public-key` - Obter chave pública
+- `POST /api/push/subscribe` - Registar subscription
+- `DELETE /api/push/unsubscribe` - Remover subscription
+
+**Files:**
+- `POST /api/files/upload` - Upload para GridFS
+- `GET /api/files/{file_id}` - Download ficheiro
+- `DELETE /api/files/{file_id}` - Apagar ficheiro
+
+**Reports:**
+- `GET /api/reports/monthly/{subscription_id}` - PDF mensal
+- `GET /api/reports/subscription-summary/{subscription_id}` - Resumo JSON
+
+### CONFIGURAÇÃO (.env)
+
+```env
+# Email
+RESEND_API_KEY=re_xxx
+SENDER_EMAIL=obeliscoradical@gmail.com
+ADMIN_NOTIFICATION_EMAIL=obeliscoradical@gmail.com
+
+# Push Notifications
+VAPID_PRIVATE_KEY_PATH=/tmp/vapid_private.pem
+VAPID_PUBLIC_KEY_PATH=/tmp/vapid_public.pem
+VAPID_APPLICATION_SERVER_KEY=BNaIi3h...
+VAPID_CLAIMS_EMAIL=mailto:obeliscoradical@gmail.com
+```
 
 ### URLs
 - **Preview**: https://obelisco-payments.preview.emergentagent.com
-- **Connect Login**: https://obelisco-payments.preview.emergentagent.com/connect
-- **Client Dashboard**: https://obelisco-payments.preview.emergentagent.com/connect/client
-- **Tech Dashboard**: https://obelisco-payments.preview.emergentagent.com/connect/tech
-- **Admin Dashboard**: https://obelisco-payments.preview.emergentagent.com/connect/admin
+- **Connect Login**: /connect
+- **Client Dashboard**: /connect/client
+- **Tech Dashboard**: /connect/tech
+- **Admin Dashboard**: /connect/admin
 
 ## Próximos Passos
 
-### P0 - Configuração de Produção
-1. Reclamar conta Stripe sandbox → produção
-2. Configurar RESEND_API_KEY para emails reais
-3. Configurar webhook Stripe para confirmação de pagamentos
+### P0 - Configuração Produção
+1. Obter RESEND_API_KEY real (criar conta em resend.com)
+2. Verificar domínio para emails (evitar spam)
+3. Reclamar conta Stripe para produção
 
-### P1 - Notificações Email
-1. Email ao cliente quando pedido é criado
-2. Email ao cliente quando pedido é atribuído
-3. Email ao técnico quando recebe novo trabalho
-4. Email ao admin para novos pedidos urgentes
-5. Resumo diário de actividade para admin
-
-### P2 - Funcionalidades Adicionais
-1. Upload de fotos/vídeos para cloud storage (atual: base64 inline)
-2. Relatórios mensais de consumo de horas
-3. Exportar histórico de intervenções em PDF
-4. Notificações push PWA
-5. Modo offline para técnicos
+### P1 - Melhorias Futuras
+1. Relatórios anuais em PDF
+2. Notificações por SMS (Twilio)
+3. Dashboard analytics para admin
+4. App nativo (React Native)
 
 ## Contactos
 - WhatsApp: +351 911 132 401
@@ -132,48 +121,31 @@ Site de serviços elétricos com:
 
 ## Notas Técnicas
 
-### Cartão de Teste Stripe
-- Número: 4242 4242 4242 4242
-- Validade: qualquer data futura
-- CVC: qualquer 3 dígitos
-
 ### Arquitetura
 ```
 /app
 ├── backend/
-│   ├── server.py      # FastAPI (2280+ linhas)
-│   └── .env           # MONGO_URL, Stripe, Resend, LLM keys
+│   ├── server.py      # FastAPI (2800+ linhas)
+│   └── .env           # Todas as configurações
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js     # Site principal + routing condicional
-│   │   ├── index.js   # BrowserRouter wrapper
 │   │   ├── pages/
 │   │   │   ├── ConnectLogin.js
 │   │   │   ├── ConnectClientDashboard.js
 │   │   │   ├── ConnectTechDashboard.js
 │   │   │   └── ConnectAdminDashboard.js
-│   │   └── components/
-│   │       ├── SignaturePad.js
-│   │       ├── ElectricalAssistant.js
-│   │       └── PWAInstallBanner.js
+│   │   ├── components/
+│   │   │   └── SignaturePad.js
+│   │   └── utils/
+│   │       └── pushNotifications.js
 │   └── public/
-│       ├── manifest.json
-│       └── service-worker.js
+│       └── service-worker.js (push support)
 └── memory/
     ├── PRD.md
     └── test_credentials.md
 ```
 
-### Work Log Fields (Fase 4)
-```javascript
-{
-  service_request_id: string,
-  hours_spent: number,
-  work_description: string,
-  notes: string,
-  photos: string[],    // base64 encoded
-  videos: string[],    // base64 encoded
-  signature: string,   // base64 encoded
-  checklist: [{id, text, checked}]
-}
-```
+### Cartão de Teste Stripe
+- Número: 4242 4242 4242 4242
+- Validade: qualquer data futura
+- CVC: qualquer 3 dígitos

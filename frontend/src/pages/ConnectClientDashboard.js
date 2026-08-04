@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   Zap, Clock, AlertCircle, CheckCircle, Loader2, LogOut, Plus, ChevronRight,
   Calendar, FileText, Phone, MessageSquare, Settings, User, CreditCard,
-  ClipboardList, History, Bell, RefreshCw, MapPin, Camera, X
+  ClipboardList, History, Bell, RefreshCw, MapPin, Camera, X, Download
 } from 'lucide-react';
+import { subscribeToPush, isPushSubscribed } from '../utils/pushNotifications';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -16,6 +17,7 @@ const ConnectClientDashboard = () => {
   const [error, setError] = useState('');
   const [showNewRequest, setShowNewRequest] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
+  const [pushEnabled, setPushEnabled] = useState(false);
   
   // New request form
   const [requestForm, setRequestForm] = useState({
@@ -36,7 +38,31 @@ const ConnectClientDashboard = () => {
       return;
     }
     fetchDashboard();
+    checkPushStatus();
   }, [token, navigate]);
+
+  const checkPushStatus = async () => {
+    const enabled = await isPushSubscribed();
+    setPushEnabled(enabled);
+  };
+
+  const handleEnablePush = async () => {
+    const stored = localStorage.getItem('connect_user');
+    if (!stored) return;
+    const userData = JSON.parse(stored);
+    const result = await subscribeToPush(userData.subscription_id || userData.email, 'CUSTOMER');
+    if (result.success) {
+      setPushEnabled(true);
+    }
+  };
+
+  const downloadMonthlyReport = () => {
+    const subscriptionId = dashboard?.subscription?.id;
+    if (!subscriptionId) return;
+    const now = new Date();
+    const url = `${BACKEND_URL}/api/reports/monthly/${subscriptionId}?month=${now.getMonth() + 1}&year=${now.getFullYear()}`;
+    window.open(url, '_blank');
+  };
 
   const fetchDashboard = async () => {
     try {
@@ -446,6 +472,51 @@ const ConnectClientDashboard = () => {
                   <p className="text-white">{user?.email || '-'}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Reports Section */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[#FFD700]" />
+                Relatorios
+              </h3>
+              <button
+                onClick={downloadMonthlyReport}
+                className="w-full bg-zinc-800 border border-zinc-700 p-4 flex items-center justify-between hover:border-[#FFD700] transition-colors"
+                data-testid="download-report"
+              >
+                <div className="flex items-center gap-3">
+                  <Download className="w-5 h-5 text-[#FFD700]" />
+                  <div className="text-left">
+                    <p className="text-white font-medium">Relatorio Mensal</p>
+                    <p className="text-xs text-zinc-500">Download PDF com consumo de horas</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-5 h-5 text-zinc-500" />
+              </button>
+            </div>
+
+            {/* Notifications Section */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-[#FFD700]" />
+                Notificacoes
+              </h3>
+              {pushEnabled ? (
+                <div className="flex items-center gap-3 text-green-400">
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Notificacoes ativadas</span>
+                </div>
+              ) : (
+                <button
+                  onClick={handleEnablePush}
+                  className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2"
+                  data-testid="enable-push"
+                >
+                  <Bell className="w-5 h-5" />
+                  Ativar Notificacoes
+                </button>
+              )}
             </div>
             
             <div className="bg-zinc-900 border border-zinc-800 p-6">
