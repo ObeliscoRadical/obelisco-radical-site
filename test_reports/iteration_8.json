@@ -1,0 +1,32 @@
+{
+  "summary": "Backend-only testing of staff login fix (unified staff_users collection + sha256 + status:'active'). All 13 tests in test_connect_auth.py passed (100%), including all 5 requested scenarios: admin login, technician login, wrong credentials 401, /api/fix-admin returns 404, and /api/connect/me works with valid token.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_connect_auth.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Staff auth is now consistent: single collection (staff_users), single hash (sha256 via hash_password), single active flag (status: 'active').",
+    "Vulnerable /api/fix-admin endpoint successfully removed (404 confirmed).",
+    "Credentials seeded from env vars - good practice."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_connect_auth.py (added test_fix_admin_endpoint_removed)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "N/A (not tested per request)"},
+  "test_credentials": "admin@obelisco.pt/admin123, tecnico@obelisco.pt/tech123",
+  "seed_data_creation": "None - used existing seeded staff_users",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Staff auth working perfectly after fix. Tests cover both roles, invalid credentials, fix-admin removal, and /api/connect/me. Run: pytest /app/backend/tests/test_connect_auth.py -v",
+  "rca of the issue": "Original bug: startup_seed_accounts wrote to db.technicians with bcrypt+active:True, but login read from db.staff_users expecting sha256+status:'active'. Fix unified everything to staff_users + sha256 + status:'active'. Verified working: admin & tech login both return success:true with correct roles."
+}

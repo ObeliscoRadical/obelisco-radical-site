@@ -30,7 +30,6 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from pywebpush import webpush, WebPushException
 from py_vapid import Vapid
-import bcrypt
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -319,55 +318,7 @@ def generate_token() -> str:
     """Generate a simple session token"""
     return secrets.token_urlsafe(32)
 
-# ==================== TEMPORARY FIX ROUTE ====================
 
-@api_router.get("/fix-admin")
-async def fix_admin_account():
-    """Temporary route to create admin account - DELETE AFTER USE"""
-    try:
-        # Check if admin already exists
-        admin_exists = await db.technicians.find_one({"email": "admin@obelisco.pt"})
-        if admin_exists:
-            return {"success": True, "message": "Admin already exists", "email": "admin@obelisco.pt"}
-        
-        # Create admin
-        admin_hash = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        admin = {
-            "id": str(uuid.uuid4()),
-            "email": "admin@obelisco.pt",
-            "name": "Administrador",
-            "role": "ADMIN",
-            "password_hash": admin_hash,
-            "phone": "+351911132401",
-            "specialties": [],
-            "active": True
-        }
-        await db.technicians.insert_one(admin)
-        
-        # Also create technician
-        tech_exists = await db.technicians.find_one({"email": "tecnico@obelisco.pt"})
-        if not tech_exists:
-            tech_hash = bcrypt.hashpw("tech123".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            technician = {
-                "id": str(uuid.uuid4()),
-                "email": "tecnico@obelisco.pt",
-                "name": "Técnico Teste",
-                "role": "TECHNICIAN",
-                "password_hash": tech_hash,
-                "phone": "+351900000000",
-                "specialties": ["eletricidade", "telecomunicacoes"],
-                "active": True
-            }
-            await db.technicians.insert_one(technician)
-        
-        return {
-            "success": True, 
-            "message": "Accounts created successfully",
-            "admin": "admin@obelisco.pt / admin123",
-            "tech": "tecnico@obelisco.pt / tech123"
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
 
 # ==================== CONNECT AUTH ENDPOINTS ====================
 
@@ -719,7 +670,7 @@ async def assign_service_request(request_id: str, technician_id: str, request: R
         "Novo Trabalho Atribuido",
         tech_content,
         "Ver Trabalhos",
-        "https://obelisco-payments.preview.emergentagent.com/connect/tech"
+        "https://staff-dashboard-92.preview.emergentagent.com/connect/tech"
     )
     await send_email_async(technician.get('email'), f"⚡ Novo Trabalho - {service_req.get('customer_name', 'Cliente')}", tech_email_html)
     
@@ -900,7 +851,7 @@ async def create_work_log(data: WorkLogCreate, request: Request):
         "Servico Concluido ✓",
         customer_content,
         "Ver Historico",
-        "https://obelisco-payments.preview.emergentagent.com/connect/client"
+        "https://staff-dashboard-92.preview.emergentagent.com/connect/client"
     )
     await send_email_async(service_req.get('customer_email'), "✅ Servico Concluido - Obelisco Radical", customer_email_html)
     
@@ -2422,11 +2373,11 @@ async def google_calendar_callback(code: str, state: str = None):
         logger.info(f"Google Calendar connected for {user_info.get('email')}")
         
         # Redirect to success page
-        return RedirectResponse(url=f"https://obelisco-payments.preview.emergentagent.com?calendar_connected=true")
+        return RedirectResponse(url=f"https://staff-dashboard-92.preview.emergentagent.com?calendar_connected=true")
         
     except Exception as e:
         logger.error(f"Google OAuth callback error: {str(e)}")
-        return RedirectResponse(url=f"https://obelisco-payments.preview.emergentagent.com?calendar_error={str(e)}")
+        return RedirectResponse(url=f"https://staff-dashboard-92.preview.emergentagent.com?calendar_error={str(e)}")
 
 class OAuthCodeRequest(BaseModel):
     code: str
@@ -2717,7 +2668,7 @@ def get_email_template(template_type: str, data: dict) -> tuple:
                 </div>
                 <p><strong>Descricao:</strong></p>
                 <p>{data.get('description', 'Sem descricao')}</p>
-                <a href="https://obelisco-payments.preview.emergentagent.com/connect/admin" class="btn">Ver no Painel Admin</a>
+                <a href="https://staff-dashboard-92.preview.emergentagent.com/connect/admin" class="btn">Ver no Painel Admin</a>
             </div>
             <div class="footer">Obelisco Radical - Servicos Eletricos</div>
         </div>
@@ -2743,7 +2694,7 @@ def get_email_template(template_type: str, data: dict) -> tuple:
                 </div>
                 <p><strong>Descricao:</strong></p>
                 <p>{data.get('description', 'Sem descricao')}</p>
-                <a href="https://obelisco-payments.preview.emergentagent.com/connect/tech" class="btn">Ver Trabalhos</a>
+                <a href="https://staff-dashboard-92.preview.emergentagent.com/connect/tech" class="btn">Ver Trabalhos</a>
             </div>
             <div class="footer">Obelisco Radical - Servicos Eletricos</div>
         </div>
@@ -2768,7 +2719,7 @@ def get_email_template(template_type: str, data: dict) -> tuple:
                 </div>
                 <p><strong>Trabalho Realizado:</strong></p>
                 <p>{data.get('work_description', 'N/A')}</p>
-                <a href="https://obelisco-payments.preview.emergentagent.com/connect/client" class="btn">Ver Historico</a>
+                <a href="https://staff-dashboard-92.preview.emergentagent.com/connect/client" class="btn">Ver Historico</a>
             </div>
             <div class="footer">Obrigado por confiar na Obelisco Radical!</div>
         </div>
@@ -3140,42 +3091,48 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_seed_accounts():
-    """Create default admin and technician accounts if they don't exist"""
-    # Check if admin exists
-    admin_exists = await db.technicians.find_one({"email": "admin@obelisco.pt"})
+    """Create default admin and technician accounts if they don't exist - uses staff_users collection"""
+    # Read credentials from environment (with defaults for dev)
+    admin_email = os.environ.get('ADMIN_STAFF_EMAIL', 'admin@obelisco.pt')
+    admin_password = os.environ.get('ADMIN_STAFF_PASSWORD', 'admin123')
+    tech_email = os.environ.get('TECH_STAFF_EMAIL', 'tecnico@obelisco.pt')
+    tech_password = os.environ.get('TECH_STAFF_PASSWORD', 'tech123')
+    
+    # Check if admin exists in staff_users
+    admin_exists = await db.staff_users.find_one({"email": admin_email})
     if not admin_exists:
-        admin_password = "admin123"
-        admin_hash = bcrypt.hashpw(admin_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        admin_hash = hash_password(admin_password)
         admin = {
             "id": str(uuid.uuid4()),
-            "email": "admin@obelisco.pt",
+            "email": admin_email,
             "name": "Administrador",
             "role": "ADMIN",
             "password_hash": admin_hash,
             "phone": "+351911132401",
             "specialties": [],
-            "active": True
+            "status": "active",
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
-        await db.technicians.insert_one(admin)
-        logger.info("Default admin account created: admin@obelisco.pt")
+        await db.staff_users.insert_one(admin)
+        logger.info(f"Default admin account created: {admin_email}")
     
-    # Check if technician exists
-    tech_exists = await db.technicians.find_one({"email": "tecnico@obelisco.pt"})
+    # Check if technician exists in staff_users
+    tech_exists = await db.staff_users.find_one({"email": tech_email})
     if not tech_exists:
-        tech_password = "tech123"
-        tech_hash = bcrypt.hashpw(tech_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        tech_hash = hash_password(tech_password)
         technician = {
             "id": str(uuid.uuid4()),
-            "email": "tecnico@obelisco.pt",
+            "email": tech_email,
             "name": "Técnico Teste",
             "role": "TECHNICIAN",
             "password_hash": tech_hash,
             "phone": "+351900000000",
             "specialties": ["eletricidade", "telecomunicacoes"],
-            "active": True
+            "status": "active",
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
-        await db.technicians.insert_one(technician)
-        logger.info("Default technician account created: tecnico@obelisco.pt")
+        await db.staff_users.insert_one(technician)
+        logger.info(f"Default technician account created: {tech_email}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

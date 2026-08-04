@@ -113,6 +113,14 @@ class TestStaffLogin:
         data = response.json()
         assert "Credenciais invalidas" in data["detail"]
 
+    def test_fix_admin_endpoint_removed(self, api_client):
+        """The vulnerable /api/fix-admin endpoint must be removed"""
+        response_post = api_client.post(f"{BASE_URL}/api/fix-admin")
+        response_get = api_client.get(f"{BASE_URL}/api/fix-admin")
+        assert response_post.status_code == 404, f"POST returned {response_post.status_code}"
+        assert response_get.status_code == 404, f"GET returned {response_get.status_code}"
+
+
 
 class TestConnectMe:
     """Tests for GET /api/connect/me"""

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('Obelisco Connect - Phase 2 Full Flow', () => {
-  const BASE_URL = 'https://obelisco-payments.preview.emergentagent.com';
+  const BASE_URL = 'https://staff-dashboard-92.preview.emergentagent.com';
   
   // Test credentials
   const CUSTOMER_EMAIL = 'teste.obelisco@gmail.com';

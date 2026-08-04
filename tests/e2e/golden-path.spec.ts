@@ -126,7 +126,7 @@ test.describe('Obelisco Radical - Golden Path', () => {
           email: 'api-test@example.com',
           phone: '911111111'
         },
-        origin_url: 'https://obelisco-payments.preview.emergentagent.com'
+        origin_url: 'https://staff-dashboard-92.preview.emergentagent.com'
       }
     });
     
@@ -148,7 +148,7 @@ test.describe('Obelisco Radical - Golden Path', () => {
         customer_email: 'api-test@example.com',
         customer_name: 'API Test User',
         customer_phone: '911111111',
-        origin_url: 'https://obelisco-payments.preview.emergentagent.com'
+        origin_url: 'https://staff-dashboard-92.preview.emergentagent.com'
       }
     });
     

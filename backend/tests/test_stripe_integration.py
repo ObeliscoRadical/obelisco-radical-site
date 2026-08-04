@@ -7,7 +7,7 @@ import requests
 import uuid
 from datetime import datetime
 
-BASE_URL = "https://obelisco-payments.preview.emergentagent.com"
+BASE_URL = "https://staff-dashboard-92.preview.emergentagent.com"
 
 
 class TestStripeConfig:
@@ -164,7 +164,7 @@ class TestSubscriptionSession:
             "customer_email": "test@example.com",
             "customer_name": "Test User",
             "customer_phone": "911111111",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -190,7 +190,7 @@ class TestSubscriptionSession:
             "lookup_key": "preventivo_monthly",
             "customer_email": "test2@example.com",
             "customer_name": "Test User 2",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -210,7 +210,7 @@ class TestSubscriptionSession:
             "lookup_key": "total_monthly",
             "customer_email": "test3@example.com",
             "customer_name": "Test User 3",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -230,7 +230,7 @@ class TestSubscriptionSession:
             "lookup_key": "invalid_plan",
             "customer_email": "test@example.com",
             "customer_name": "Test User",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -247,7 +247,7 @@ class TestSubscriptionSession:
             "lookup_key": "essencial_annual",
             "customer_email": "test_annual@example.com",
             "customer_name": "Test Annual User",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -267,7 +267,7 @@ class TestSubscriptionSession:
             "lookup_key": "preventivo_annual",
             "customer_email": "test_annual2@example.com",
             "customer_name": "Test Annual User 2",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -287,7 +287,7 @@ class TestSubscriptionSession:
             "lookup_key": "total_annual",
             "customer_email": "test_annual3@example.com",
             "customer_name": "Test Annual User 3",
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -326,7 +326,7 @@ class TestCustomerPortal:
     def test_create_portal_session_no_subscription(self):
         """POST /api/customer/portal-session should fail without active subscription"""
         response = requests.post(
-            f"{BASE_URL}/api/customer/portal-session?email=nonexistent@example.com&return_url=https://obelisco-payments.preview.emergentagent.com"
+            f"{BASE_URL}/api/customer/portal-session?email=nonexistent@example.com&return_url=https://staff-dashboard-92.preview.emergentagent.com"
         )
         
         # Should return 404 when no active subscription found
@@ -360,7 +360,7 @@ class TestStripeCheckoutSession:
                 "email": "test@example.com",
                 "phone": "911111111"
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -394,7 +394,7 @@ class TestStripeCheckoutSession:
                 "email": "maria@example.com",
                 "phone": "912345678"
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -421,7 +421,7 @@ class TestStripeCheckoutSession:
                 "name": "Test User",
                 "email": "test@example.com"
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com",
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com",
             "order_id": custom_order_id
         }
         
@@ -447,7 +447,7 @@ class TestStripeCheckoutSession:
                 "email": "joao@example.com",
                 "phone": "913456789"
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com",
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com",
             "metadata": {
                 "address": "Rua Test 123",
                 "date": "2026-04-01",
@@ -477,7 +477,7 @@ class TestStripeCheckoutSession:
                 "name": "Test User"
                 # Missing email
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         response = requests.post(
@@ -505,7 +505,7 @@ class TestStripeSessionStatus:
                 "name": "Test User",
                 "email": "test@example.com"
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         create_response = requests.post(
@@ -567,7 +567,7 @@ class TestPaymentsEndpoints:
                 "name": "Test User",
                 "email": "test@example.com"
             },
-            "origin_url": "https://obelisco-payments.preview.emergentagent.com"
+            "origin_url": "https://staff-dashboard-92.preview.emergentagent.com"
         }
         
         create_response = requests.post(

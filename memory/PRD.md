@@ -95,7 +95,7 @@ VAPID_CLAIMS_EMAIL=mailto:obeliscoradical@gmail.com
 ```
 
 ### URLs
-- **Preview**: https://obelisco-payments.preview.emergentagent.com
+- **Preview**: https://staff-dashboard-92.preview.emergentagent.com
 - **Connect Login**: /connect
 - **Client Dashboard**: /connect/client
 - **Tech Dashboard**: /connect/tech
