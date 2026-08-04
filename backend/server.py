@@ -6,6 +6,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import asyncio
+import hashlib
+import secrets
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
@@ -166,6 +168,179 @@ PLAN_HOURS = {
     "preventivo": 6,
     "total": 12
 }
+
+# ==================== CONNECT AUTH MODELS ====================
+
+class CustomerLoginRequest(BaseModel):
+    email: str
+
+class StaffLoginRequest(BaseModel):
+    email: str
+    password: str
+
+class StaffUser(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: str
+    name: str
+    password_hash: str
+    role: str = "TECHNICIAN"  # TECHNICIAN or ADMIN
+    phone: Optional[str] = None
+    specialties: List[str] = []
+    status: str = "active"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+def hash_password(password: str) -> str:
+    """Simple password hashing"""
+    return hashlib.sha256(password.encode()).hexdigest()
+
+def verify_password(password: str, password_hash: str) -> bool:
+    """Verify password against hash"""
+    return hash_password(password) == password_hash
+
+def generate_token() -> str:
+    """Generate a simple session token"""
+    return secrets.token_urlsafe(32)
+
+# ==================== CONNECT AUTH ENDPOINTS ====================
+
+@api_router.post("/connect/login/customer")
+async def connect_login_customer(request: CustomerLoginRequest):
+    """Login for customers - checks if they have an active subscription"""
+    email = request.email.lower().strip()
+    
+    # Find active subscription for this email
+    subscription = await db.subscriptions.find_one(
+        {"customer_email": email, "status": "active"},
+        {"_id": 0}
+    )
+    
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Nenhuma subscricao ativa encontrada para este email")
+    
+    # Generate session token
+    token = generate_token()
+    
+    # Store session
+    session_doc = {
+        "token": token,
+        "user_email": email,
+        "user_type": "CUSTOMER",
+        "subscription_id": subscription.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    }
+    await db.connect_sessions.insert_one(session_doc)
+    
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "email": email,
+            "name": subscription.get("customer_name", "Cliente"),
+            "role": "CUSTOMER",
+            "subscription_id": subscription.get("id"),
+            "plan_name": subscription.get("plan_name")
+        }
+    }
+
+@api_router.post("/connect/login/staff")
+async def connect_login_staff(request: StaffLoginRequest):
+    """Login for staff (technicians and admins)"""
+    email = request.email.lower().strip()
+    
+    # Find staff user
+    staff = await db.staff_users.find_one({"email": email}, {"_id": 0})
+    
+    if not staff:
+        raise HTTPException(status_code=401, detail="Credenciais invalidas")
+    
+    if staff.get("status") != "active":
+        raise HTTPException(status_code=403, detail="Conta desativada")
+    
+    # Verify password
+    if not verify_password(request.password, staff.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Credenciais invalidas")
+    
+    # Generate session token
+    token = generate_token()
+    
+    # Store session
+    session_doc = {
+        "token": token,
+        "user_email": email,
+        "user_type": staff.get("role", "TECHNICIAN"),
+        "staff_id": staff.get("id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "expires_at": (datetime.now(timezone.utc) + timedelta(days=7)).isoformat()
+    }
+    await db.connect_sessions.insert_one(session_doc)
+    
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": staff.get("id"),
+            "email": email,
+            "name": staff.get("name"),
+            "role": staff.get("role", "TECHNICIAN"),
+            "specialties": staff.get("specialties", [])
+        }
+    }
+
+@api_router.get("/connect/me")
+async def connect_get_current_user(request: Request):
+    """Get current logged in user from token"""
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token nao fornecido")
+    
+    token = auth_header.replace("Bearer ", "")
+    
+    # Find session
+    session = await db.connect_sessions.find_one({"token": token}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=401, detail="Sessao invalida")
+    
+    # Check expiry
+    expires_at = datetime.fromisoformat(session.get("expires_at"))
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=401, detail="Sessao expirada")
+    
+    user_type = session.get("user_type")
+    
+    if user_type == "CUSTOMER":
+        subscription = await db.subscriptions.find_one(
+            {"id": session.get("subscription_id")},
+            {"_id": 0}
+        )
+        return {
+            "email": session.get("user_email"),
+            "name": subscription.get("customer_name", "Cliente") if subscription else "Cliente",
+            "role": "CUSTOMER",
+            "subscription": subscription
+        }
+    else:
+        staff = await db.staff_users.find_one(
+            {"id": session.get("staff_id")},
+            {"_id": 0}
+        )
+        return {
+            "id": staff.get("id") if staff else None,
+            "email": session.get("user_email"),
+            "name": staff.get("name") if staff else "Utilizador",
+            "role": user_type,
+            "specialties": staff.get("specialties", []) if staff else []
+        }
+
+@api_router.post("/connect/logout")
+async def connect_logout(request: Request):
+    """Logout - invalidate session"""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.replace("Bearer ", "")
+        await db.connect_sessions.delete_one({"token": token})
+    return {"success": True}
 
 # Basic routes
 @api_router.get("/")

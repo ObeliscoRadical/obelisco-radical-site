@@ -1,25 +1,42 @@
 # Test Credentials - Obelisco Radical
 
-## Portal do Cliente (Área Cliente)
+## Obelisco Connect - Sistema Unificado
 
-### Conta de Teste com Plano Total
+### Cliente (Portal do Cliente)
 - **Email:** teste.obelisco@gmail.com
-- **Nome:** Cliente Teste Obelisco
+- **Password:** Não necessária (login por email)
 - **Plano:** Total (1.290 EUR/mês)
-- **Horas incluídas:** 12h/mês
-- **Horas usadas:** 3.5h
-- **Horas disponíveis:** 8.5h
-- **Status:** Activo
+- **Horas:** 8.5h disponíveis de 12h
 
-### Como Testar
-1. Aceder ao site: https://obelisco-payments.preview.emergentagent.com
-2. Clicar no botão "Área Cliente" no header
-3. Inserir o email: `teste.obelisco@gmail.com`
-4. Clicar "Aceder"
-5. Verá a subscrição activa com barra de progresso de horas
-6. Pode clicar na subscrição para ver detalhes e pedir intervenção
+### Administrador
+- **Email:** admin@obelisco.pt
+- **Password:** admin123
+- **Role:** ADMIN
 
-### Cartão de Teste Stripe
+### Técnico
+- **Email:** tecnico@obelisco.pt
+- **Password:** tech123
+- **Role:** TECHNICIAN
+
+## Como Testar
+
+### Login Cliente
+1. Aceder a: https://obelisco-payments.preview.emergentagent.com/connect
+2. Manter "Cliente" selecionado
+3. Inserir: `teste.obelisco@gmail.com`
+4. Clicar "Aceder com Email"
+
+### Login Admin/Técnico
+1. Aceder a: https://obelisco-payments.preview.emergentagent.com/connect
+2. Clicar em "Equipa / Admin"
+3. Inserir email e password
+4. Clicar "Entrar"
+
+## Cartão de Teste Stripe
 - **Número:** 4242 4242 4242 4242
 - **Validade:** Qualquer data futura (ex: 12/30)
 - **CVC:** Qualquer 3 dígitos (ex: 123)
+
+## URLs
+- **Site Principal:** https://obelisco-payments.preview.emergentagent.com
+- **Obelisco Connect:** https://obelisco-payments.preview.emergentagent.com/connect

@@ -1,6 +1,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import ElectricalAssistant from "./components/ElectricalAssistant";
+import PWAInstallBanner from "./components/PWAInstallBanner";
+import ConnectLogin from "./pages/ConnectLogin";
 import {
   Menu,
   X,
@@ -712,6 +714,13 @@ function EasypayCheckoutModal({ open, onClose, orderData, onPaymentSuccess }) {
 }
 
 export default function App() {
+  // ============ ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL RETURNS ============
+  
+  // Routing state
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+  const [connectUser, setConnectUser] = useState(null);
+  
+  // Main website states
   const [menuOpen, setMenuOpen] = useState(false);
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedService, setSelectedService] = useState();
@@ -729,17 +738,8 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState("");
   const [serviceType, setServiceType] = useState("");
 
-  // Service types available
-  const serviceTypes = [
-    { value: "instalacao", label: "Instalacao" },
-    { value: "reparacao", label: "Reparacao" },
-    { value: "manutencao", label: "Manutencao" },
-    { value: "visita_tecnica", label: "Visita Tecnica" },
-    { value: "certificacao", label: "Certificacao" },
-  ];
-
   // Payment states
-  const [checkoutStep, setCheckoutStep] = useState("form"); // form, payment, success
+  const [checkoutStep, setCheckoutStep] = useState("form");
   const [showEasypayCheckout, setShowEasypayCheckout] = useState(false);
   const [easypayOrderData, setEasypayOrderData] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -753,7 +753,7 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [subscriptionError, setSubscriptionError] = useState("");
-  const [billingCycle, setBillingCycle] = useState("monthly"); // monthly or annual
+  const [billingCycle, setBillingCycle] = useState("monthly");
   
   // Customer portal states
   const [showCustomerPortal, setShowCustomerPortal] = useState(false);
@@ -763,6 +763,47 @@ export default function App() {
   const [portalLoading, setPortalLoading] = useState(false);
   const [showInterventionForm, setShowInterventionForm] = useState(false);
   const [selectedSubscription, setSelectedSubscription] = useState(null);
+
+  // ============ ALL EFFECTS ============
+  
+  // Navigation and session effect
+  useEffect(() => {
+    const handlePopState = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+    
+    const savedUser = localStorage.getItem('connect_user');
+    if (savedUser) {
+      try {
+        setConnectUser(JSON.parse(savedUser));
+      } catch (e) {
+        localStorage.removeItem('connect_user');
+      }
+    }
+    
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Handle Connect login
+  const handleConnectLogin = (user) => {
+    setConnectUser(user);
+    const role = user.role || 'CUSTOMER';
+    if (role === 'ADMIN') {
+      window.location.href = '/connect/admin';
+    } else if (role === 'TECHNICIAN') {
+      window.location.href = '/connect/tecnico';
+    } else {
+      window.location.href = '/connect/cliente';
+    }
+  };
+
+  // Service types available
+  const serviceTypes = [
+    { value: "instalacao", label: "Instalacao" },
+    { value: "reparacao", label: "Reparacao" },
+    { value: "manutencao", label: "Manutencao" },
+    { value: "visita_tecnica", label: "Visita Tecnica" },
+    { value: "certificacao", label: "Certificacao" },
+  ];
 
   // Handle OAuth callback on page load
   useEffect(() => {
@@ -856,6 +897,20 @@ export default function App() {
       slot.date === selectedDate && slot.start_time === time
     );
   };
+
+  // ============ CONDITIONAL ROUTING (after all hooks) ============
+  
+  // Route: /connect - Show login page
+  if (currentPath.startsWith('/connect')) {
+    return (
+      <>
+        <ConnectLogin onLogin={handleConnectLogin} />
+        <PWAInstallBanner />
+      </>
+    );
+  }
+
+  // ============ MAIN WEBSITE RENDER ============
 
   const nav = [
     { label: "Inicio", id: "hero" },
@@ -1117,13 +1172,13 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
               </button>
             ))}
 
-            <button
-              onClick={() => setShowCustomerPortal(true)}
+            <a
+              href="/connect"
               className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition hover:border-yellow-400 hover:text-yellow-400"
               data-testid="customer-portal-btn"
             >
-              Area Cliente
-            </button>
+              Obelisco Connect
+            </a>
 
             <a
               href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
@@ -2913,6 +2968,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
       />
 
       <ElectricalAssistant />
+      <PWAInstallBanner />
     </div>
   );
 }
