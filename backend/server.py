@@ -205,6 +205,10 @@ class WorkLogCreate(BaseModel):
     notes: Optional[str] = None
     materials_used: Optional[dict] = None
     media_urls: List[str] = []
+    photos: List[str] = []  # base64 encoded images
+    videos: List[str] = []  # base64 encoded videos
+    signature: Optional[str] = None  # base64 encoded signature
+    checklist: List[dict] = []  # [{id, text, checked}]
 
 class WorkLog(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -221,7 +225,10 @@ class WorkLog(BaseModel):
     notes: Optional[str] = None
     materials_used: Optional[dict] = None
     media_urls: List[str] = []
-    customer_signature_url: Optional[str] = None
+    photos: List[str] = []
+    videos: List[str] = []
+    customer_signature: Optional[str] = None
+    checklist: List[dict] = []
     status: str = "submitted"  # draft, submitted, approved
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -662,7 +669,7 @@ async def create_work_log(data: WorkLogCreate, request: Request):
     if data.hours_spent > hours_available:
         logger.warning(f"Hours spent ({data.hours_spent}) exceeds available ({hours_available})")
     
-    # Create work log
+    # Create work log with all fields including photos, videos, signature, checklist
     work_log = WorkLog(
         service_request_id=data.service_request_id,
         technician_id=session.get("staff_id"),
@@ -674,6 +681,10 @@ async def create_work_log(data: WorkLogCreate, request: Request):
         notes=data.notes,
         materials_used=data.materials_used,
         media_urls=data.media_urls,
+        photos=data.photos,
+        videos=data.videos,
+        customer_signature=data.signature,
+        checklist=data.checklist,
         status="submitted"
     )
     

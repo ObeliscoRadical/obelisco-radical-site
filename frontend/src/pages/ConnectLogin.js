@@ -1,16 +1,50 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Zap, Mail, Lock, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || '';
 
 export function ConnectLogin({ onLogin }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [loginType, setLoginType] = useState('customer'); // customer, staff
+
+  // Check if already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('connect_token');
+    const user = localStorage.getItem('connect_user');
+    if (token && user) {
+      try {
+        const userData = JSON.parse(user);
+        redirectByRole(userData.role);
+      } catch (e) {
+        localStorage.removeItem('connect_token');
+        localStorage.removeItem('connect_user');
+      }
+    }
+  }, []);
+
+  const redirectByRole = (role) => {
+    const normalizedRole = role?.toLowerCase();
+    switch (normalizedRole) {
+      case 'customer':
+        navigate('/connect/client');
+        break;
+      case 'technician':
+        navigate('/connect/tech');
+        break;
+      case 'admin':
+        navigate('/connect/admin');
+        break;
+      default:
+        navigate('/connect/client');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,6 +80,9 @@ export function ConnectLogin({ onLogin }) {
       if (onLogin) {
         onLogin(data.user);
       }
+
+      // Redirect based on role
+      redirectByRole(data.user.role);
 
     } catch (err) {
       setError(err.message || 'Erro ao fazer login');

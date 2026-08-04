@@ -1,8 +1,12 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import ElectricalAssistant from "./components/ElectricalAssistant";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import ConnectLogin from "./pages/ConnectLogin";
+import ConnectClientDashboard from "./pages/ConnectClientDashboard";
+import ConnectTechDashboard from "./pages/ConnectTechDashboard";
+import ConnectAdminDashboard from "./pages/ConnectAdminDashboard";
 import {
   Menu,
   X,
@@ -899,6 +903,36 @@ export default function App() {
   };
 
   // ============ CONDITIONAL ROUTING (after all hooks) ============
+  
+  // Route: /connect/client - Client Dashboard
+  if (currentPath === '/connect/client') {
+    return (
+      <>
+        <ConnectClientDashboard />
+        <PWAInstallBanner />
+      </>
+    );
+  }
+  
+  // Route: /connect/tech - Technician Dashboard
+  if (currentPath === '/connect/tech') {
+    return (
+      <>
+        <ConnectTechDashboard />
+        <PWAInstallBanner />
+      </>
+    );
+  }
+  
+  // Route: /connect/admin - Admin Dashboard
+  if (currentPath === '/connect/admin') {
+    return (
+      <>
+        <ConnectAdminDashboard />
+        <PWAInstallBanner />
+      </>
+    );
+  }
   
   // Route: /connect - Show login page
   if (currentPath.startsWith('/connect')) {

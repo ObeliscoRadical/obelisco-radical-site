@@ -17,11 +17,19 @@ export default defineConfig({
     headless: true,
     viewport: { width: 1920, height: 1080 },
     ignoreHTTPSErrors: true,
+    launchOptions: {
+      executablePath: '/pw-browsers/chromium_headless_shell-1208/chrome-linux/headless_shell',
+    },
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          executablePath: '/pw-browsers/chromium_headless_shell-1208/chrome-linux/headless_shell',
+        },
+      },
     },
   ],
 });

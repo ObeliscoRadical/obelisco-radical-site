@@ -20,7 +20,7 @@ Site de serviços elétricos com:
 - [x] **Stripe como único gateway de pagamento**
 - [x] **Secção Obelisco Care** com 3 planos
 - [x] **Toggle Mensal/Anual** com desconto de 2 meses
-- [x] **Portal do Cliente** (Área Cliente)
+- [x] **Portal do Cliente** (Área Cliente modal)
 - [x] **Sistema de pedidos de intervenção**
 - [x] Checkout com dados do cliente
 - [x] Agendamento (Segunda a Sexta, 8h-18h)
@@ -42,9 +42,43 @@ Site de serviços elétricos com:
 - [x] Admin: listar técnicos, criar técnico, listar subscrições
 - [x] Admin: ajuste manual de horas com histórico
 - [x] Admin: dashboard com estatísticas
-- [x] Customer Dashboard: subscrição, horas, pedidos, work logs
-- [x] Technician Dashboard: pedidos atribuídos, stats, logs recentes
-- [x] Débito automático de horas ao submeter work log
+- [x] Customer Dashboard API: subscrição, horas, pedidos, work logs
+- [x] Technician Dashboard API: pedidos atribuídos, stats, logs recentes
+
+#### Obelisco Connect - Fase 3 (Dashboards Visuais) ✅
+- [x] **Dashboard Cliente** (`/connect/client`)
+  - Saldo de horas com barra de progresso
+  - Criar novo pedido de serviço
+  - Ver pedidos recentes e histórico
+  - Detalhes da subscrição
+  - Tabs: Resumo, Pedidos, Histórico, Conta
+  - Navegação mobile com bottom nav
+  
+- [x] **Dashboard Admin** (`/connect/admin`)
+  - Stats cards: subscrições ativas, pedidos pendentes, técnicos, trabalhos
+  - Gestão completa de pedidos (atribuir, alterar status)
+  - Gestão de técnicos (criar, listar)
+  - Gestão de subscrições com ajuste manual de horas
+  - Histórico de ajustes de horas
+  - Tabs: Visão Geral, Pedidos, Técnicos, Subscrições, Ajustes
+
+#### Obelisco Connect - Fase 4 (App Técnicos Migrado) ✅
+- [x] **Dashboard Técnico** (`/connect/tech`)
+  - Lista de trabalhos atribuídos com urgência e estado
+  - Iniciar trabalho com **temporizador em tempo real**
+  - **Checklist de serviço** (6 itens predefinidos)
+  - **Upload de fotos** (até 10 fotos)
+  - **Upload de vídeos** (até 3 vídeos)
+  - **Assinatura digital do cliente** (canvas touch)
+  - Navegação GPS para morada do cliente
+  - Ligar diretamente para cliente
+  - Submissão de work log com débito automático de horas
+  - Tabs: Trabalhos, Histórico, Perfil
+  
+- [x] **Componente SignaturePad** reutilizável
+  - Canvas de assinatura com touch support
+  - Limpar/Cancelar/Confirmar
+  - Export para base64 PNG
 
 ### PLANOS OBELISCO CARE
 
@@ -54,66 +88,42 @@ Site de serviços elétricos com:
 | **Preventivo** | €699/mês | €6.990/ano (poupa €1.398) | 6h |
 | **Total** ⭐ | €1.290/mês | €12.900/ano (poupa €2.580) | 12h |
 
-### ENDPOINTS OBELISCO CONNECT
+### ROTAS OBELISCO CONNECT
 
-**Auth**
-- `POST /api/connect/login/customer` - Login cliente (email)
-- `POST /api/connect/login/staff` - Login equipa (email + password)
-- `GET /api/connect/me` - Utilizador atual
-- `POST /api/connect/logout` - Terminar sessão
+| Rota | Componente | Acesso |
+|------|------------|--------|
+| `/connect` | ConnectLogin | Público |
+| `/connect/client` | ConnectClientDashboard | CUSTOMER |
+| `/connect/tech` | ConnectTechDashboard | TECHNICIAN |
+| `/connect/admin` | ConnectAdminDashboard | ADMIN |
 
-**Service Requests**
-- `POST /api/connect/service-requests` - Criar pedido
-- `GET /api/connect/service-requests` - Listar pedidos
-- `GET /api/connect/service-requests/{id}` - Ver pedido
-- `PUT /api/connect/service-requests/{id}/assign` - Atribuir técnico
-- `PUT /api/connect/service-requests/{id}/schedule` - Agendar
-- `PUT /api/connect/service-requests/{id}/status` - Atualizar status
-
-**Work Logs**
-- `POST /api/connect/work-logs` - Criar work log (débito horas)
-- `GET /api/connect/work-logs` - Listar work logs
-
-**Admin**
-- `GET /api/connect/admin/technicians` - Listar técnicos
-- `POST /api/connect/admin/technicians` - Criar técnico
-- `GET /api/connect/admin/subscriptions` - Listar subscrições
-- `POST /api/connect/admin/hours-adjustment` - Ajustar horas
-- `GET /api/connect/admin/hours-adjustments` - Histórico ajustes
-- `GET /api/connect/admin/stats` - Estatísticas
-
-**Dashboards**
-- `GET /api/connect/customer/dashboard` - Dashboard cliente
-- `GET /api/connect/technician/dashboard` - Dashboard técnico
-
-## URLs
+### URLs
 - **Preview**: https://obelisco-payments.preview.emergentagent.com
-- **Connect**: https://obelisco-payments.preview.emergentagent.com/connect
-
-## Testes (iteration 7)
-- Backend: 100% (82/82 testes)
-- Frontend E2E: 100% (23/23 testes)
-- Regressão: 100% (105/105 testes)
+- **Connect Login**: https://obelisco-payments.preview.emergentagent.com/connect
+- **Client Dashboard**: https://obelisco-payments.preview.emergentagent.com/connect/client
+- **Tech Dashboard**: https://obelisco-payments.preview.emergentagent.com/connect/tech
+- **Admin Dashboard**: https://obelisco-payments.preview.emergentagent.com/connect/admin
 
 ## Próximos Passos
 
-### P0 - Fase 3: Dashboards Completos (Próximo)
-1. Dashboard Cliente completo em /connect/client
-2. Dashboard Técnico em /connect/tech
-3. Dashboard Admin em /connect/admin
-4. **Migrar UI do app Obelisco-Tecnicos** (zip fornecido)
-
-### P1 - Fase 4: Work Logs Avançados
-1. Checklist de serviço
-2. Temporizador de tempo de serviço
-3. Upload de fotos/vídeos
-4. **Assinatura digital do cliente**
-5. Débito de horas em tempo real
-
-### P2 - Ativação Produção
+### P0 - Configuração de Produção
 1. Reclamar conta Stripe sandbox → produção
-2. Configurar RESEND_API_KEY para emails
-3. Configurar webhook Stripe
+2. Configurar RESEND_API_KEY para emails reais
+3. Configurar webhook Stripe para confirmação de pagamentos
+
+### P1 - Notificações Email
+1. Email ao cliente quando pedido é criado
+2. Email ao cliente quando pedido é atribuído
+3. Email ao técnico quando recebe novo trabalho
+4. Email ao admin para novos pedidos urgentes
+5. Resumo diário de actividade para admin
+
+### P2 - Funcionalidades Adicionais
+1. Upload de fotos/vídeos para cloud storage (atual: base64 inline)
+2. Relatórios mensais de consumo de horas
+3. Exportar histórico de intervenções em PDF
+4. Notificações push PWA
+5. Modo offline para técnicos
 
 ## Contactos
 - WhatsApp: +351 911 132 401
@@ -131,16 +141,39 @@ Site de serviços elétricos com:
 ```
 /app
 ├── backend/
-│   ├── server.py      # FastAPI (2271 linhas)
+│   ├── server.py      # FastAPI (2280+ linhas)
 │   └── .env           # MONGO_URL, Stripe, Resend, LLM keys
 ├── frontend/
 │   ├── src/
-│   │   ├── App.js     # Site principal (monolítico)
-│   │   └── pages/ConnectLogin.js
+│   │   ├── App.js     # Site principal + routing condicional
+│   │   ├── index.js   # BrowserRouter wrapper
+│   │   ├── pages/
+│   │   │   ├── ConnectLogin.js
+│   │   │   ├── ConnectClientDashboard.js
+│   │   │   ├── ConnectTechDashboard.js
+│   │   │   └── ConnectAdminDashboard.js
+│   │   └── components/
+│   │       ├── SignaturePad.js
+│   │       ├── ElectricalAssistant.js
+│   │       └── PWAInstallBanner.js
 │   └── public/
 │       ├── manifest.json
 │       └── service-worker.js
 └── memory/
     ├── PRD.md
     └── test_credentials.md
+```
+
+### Work Log Fields (Fase 4)
+```javascript
+{
+  service_request_id: string,
+  hours_spent: number,
+  work_description: string,
+  notes: string,
+  photos: string[],    // base64 encoded
+  videos: string[],    // base64 encoded
+  signature: string,   // base64 encoded
+  checklist: [{id, text, checked}]
+}
 ```

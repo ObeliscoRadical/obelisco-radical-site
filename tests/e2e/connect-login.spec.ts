@@ -63,8 +63,8 @@ test.describe('Obelisco Connect - Login Page', () => {
     // Click login button
     await page.getByTestId('connect-login-btn').click();
     
-    // Wait for redirect (successful login redirects to /connect/cliente)
-    await page.waitForURL(/\/connect\/cliente/, { timeout: 10000 });
+    // Wait for redirect (successful login redirects to /connect/client)
+    await page.waitForURL(/\/connect\/client/, { timeout: 10000 });
     
     await page.screenshot({ path: 'connect-customer-logged-in.jpeg', quality: 20 });
   });
@@ -116,8 +116,8 @@ test.describe('Obelisco Connect - Login Page', () => {
     // Click login button
     await page.getByTestId('connect-login-btn').click();
     
-    // Wait for redirect (successful login redirects to /connect/tecnico)
-    await page.waitForURL(/\/connect\/tecnico/, { timeout: 10000 });
+    // Wait for redirect (successful login redirects to /connect/tech)
+    await page.waitForURL(/\/connect\/tech/, { timeout: 10000 });
     
     await page.screenshot({ path: 'connect-technician-logged-in.jpeg', quality: 20 });
   });
