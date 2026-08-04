@@ -10,7 +10,14 @@ Site de serviços elétricos com:
 6. Assistente de IA para diagnóstico
 7. **Obelisco Connect** - Sistema unificado de gestão com PWA
 
-## Estado Atual (04/08/2026)
+## Estado Atual (09/12/2025)
+
+### CORREÇÃO CRÍTICA APLICADA (09/12/2025)
+- [x] **Bug P0 corrigido**: Login de staff falhava por inconsistência de coleção/hash
+  - **Problema**: `startup_seed_accounts` escrevia em `db.technicians` com bcrypt, mas login lia de `db.staff_users` com sha256
+  - **Solução**: Unificado tudo para `staff_users` + sha256 + `status: "active"`
+  - **Segurança**: Removida rota `/api/fix-admin` (vulnerabilidade)
+  - **Credenciais**: Agora lidas de variáveis de ambiente (`ADMIN_STAFF_EMAIL`, `ADMIN_STAFF_PASSWORD`, etc.)
 
 ### FUNCIONAL
 
@@ -104,15 +111,23 @@ VAPID_CLAIMS_EMAIL=mailto:obeliscoradical@gmail.com
 ## Próximos Passos
 
 ### P0 - Configuração Produção
-1. Obter RESEND_API_KEY real (criar conta em resend.com)
-2. Verificar domínio para emails (evitar spam)
-3. Reclamar conta Stripe para produção
+1. **FAZER DEPLOY** para aplicar correção do login de staff
+2. Obter RESEND_API_KEY real (criar conta em resend.com)
+3. Verificar domínio para emails (evitar spam)
+4. Reclamar conta Stripe para produção
 
-### P1 - Melhorias Futuras
+### P1 - Segurança e Qualidade
+1. Migrar `connect_token` de localStorage para cookies httpOnly
+2. Corrigir dependências faltantes nos useEffect (App.js e Dashboards)
+3. Refatorar `server.py` - funções complexas (stripe_webhook, etc.)
+
+### P2 - Melhorias Futuras
 1. Relatórios anuais em PDF
 2. Notificações por SMS (Twilio)
 3. Dashboard analytics para admin
 4. App nativo (React Native)
+5. Remover console.log de produção
+6. Refatorar App.js em componentes menores
 
 ## Contactos
 - WhatsApp: +351 911 132 401
