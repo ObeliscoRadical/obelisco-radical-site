@@ -17,7 +17,12 @@ Site de serviços elétricos com:
   - **Problema**: `startup_seed_accounts` escrevia em `db.technicians` com bcrypt, mas login lia de `db.staff_users` com sha256
   - **Solução**: Unificado tudo para `staff_users` + sha256 + `status: "active"`
   - **Segurança**: Removida rota `/api/fix-admin` (vulnerabilidade)
-  - **Credenciais**: Agora lidas de variáveis de ambiente (`ADMIN_STAFF_EMAIL`, `ADMIN_STAFF_PASSWORD`, etc.)
+  - **Credenciais**: Agora lidas de variáveis de ambiente (`ADMIN_STAFF_EMAIL`, etc.)
+
+- [x] **Bug corrigido**: Criar técnico pelo dashboard admin não funcionava
+  - **Problema**: Endpoint esperava query params, frontend enviava JSON body
+  - **Solução**: Criado modelo `CreateTechnicianRequest` e endpoint alterado para aceitar JSON
+  - **Limpeza**: Removidos dados de teste (contas `test_tech_*`) da base de dados
 
 ### FUNCIONAL
 
