@@ -294,6 +294,13 @@ class StaffLoginRequest(BaseModel):
     email: str
     password: str
 
+class CreateTechnicianRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    phone: Optional[str] = None
+    specialties: Optional[List[str]] = None
+
 class StaffUser(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -902,28 +909,26 @@ async def list_technicians(request: Request):
     return {"technicians": technicians}
 
 @api_router.post("/connect/admin/technicians")
-async def create_technician(name: str, email: str, password: str, phone: Optional[str] = None, specialties: Optional[List[str]] = None, request: Request = None):
+async def create_technician(data: CreateTechnicianRequest, request: Request):
     """Admin creates a new technician"""
-    if specialties is None:
-        specialties = []
     session = await get_user_from_token(request)
     
     if session.get("user_type") != "ADMIN":
         raise HTTPException(status_code=403, detail="Apenas admins")
     
     # Check if email exists
-    existing = await db.staff_users.find_one({"email": email.lower()})
+    existing = await db.staff_users.find_one({"email": data.email.lower()})
     if existing:
         raise HTTPException(status_code=400, detail="Email ja existe")
     
     technician = {
         "id": str(uuid.uuid4()),
-        "email": email.lower(),
-        "name": name,
-        "password_hash": hash_password(password),
+        "email": data.email.lower(),
+        "name": data.name,
+        "password_hash": hash_password(data.password),
         "role": "TECHNICIAN",
-        "phone": phone,
-        "specialties": specialties,
+        "phone": data.phone,
+        "specialties": data.specialties or [],
         "status": "active",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
