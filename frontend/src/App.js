@@ -907,35 +907,20 @@ export default function App() {
   
   // Route: /connect/client - Client Dashboard
   if (currentPath === '/connect/client') {
-    return (
-      <>
-        <ConnectClientDashboard />
-        <PWAInstallBanner />
-      </>
-    );
+    return <ConnectClientDashboard />;
   }
   
   // Route: /connect/tech - Technician Dashboard
   if (currentPath === '/connect/tech') {
-    return (
-      <>
-        <ConnectTechDashboard />
-        <PWAInstallBanner />
-      </>
-    );
+    return <ConnectTechDashboard />;
   }
   
   // Route: /connect/admin - Admin Dashboard
   if (currentPath === '/connect/admin') {
-    return (
-      <>
-        <ConnectAdminDashboard />
-        <PWAInstallBanner />
-      </>
-    );
+    return <ConnectAdminDashboard />;
   }
   
-  // Route: /connect - Show login page
+  // Route: /connect - Show login page (with PWA Install Banner)
   if (currentPath.startsWith('/connect')) {
     return (
       <>
