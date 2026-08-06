@@ -2,20 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ChevronRight, Shield, Clock, Headphones, Zap } from 'lucide-react';
 
-// Hero carousel slides data - optimized with correct CTAs
+// Hero carousel slides data - Obelisco Care FIRST for A/B test (conversion focus)
 const heroSlides = [
   {
     id: 1,
-    badge: "Infraestruturas & Energia",
-    title: "Engenharia Elétrica & Telecomunicações",
-    titleHighlight: "de Elevada Exigência",
-    subtitle: "Soluções técnicas integradas com rigor, precisão e total conformidade com normas europeias.",
-    ctaPrimary: { text: "Solicitar Proposta", href: "#contact" },
-    ctaSecondary: { text: "Ver Serviços", href: "#services" },
-    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/a4ce54901cc02dc5ef81d5d24fc71ec3c9323ca2261212f90a48d2bc6bcf7452.jpeg"
-  },
-  {
-    id: 2,
     badge: "Plano de Proteção Exclusivo",
     title: "Obelisco Care",
     titleHighlight: "Tranquilidade Total",
@@ -29,6 +19,16 @@ const heroSlides = [
       { icon: Headphones, text: "Suporte Dedicado" }
     ],
     isPromo: true
+  },
+  {
+    id: 2,
+    badge: "Infraestruturas & Energia",
+    title: "Engenharia Elétrica & Telecomunicações",
+    titleHighlight: "de Elevada Exigência",
+    subtitle: "Soluções técnicas integradas com rigor, precisão e total conformidade com normas europeias.",
+    ctaPrimary: { text: "Solicitar Proposta", href: "#contact" },
+    ctaSecondary: { text: "Ver Serviços", href: "#services" },
+    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/a4ce54901cc02dc5ef81d5d24fc71ec3c9323ca2261212f90a48d2bc6bcf7452.jpeg"
   },
   {
     id: 3,
@@ -142,16 +142,27 @@ const HeroCarousel = ({ scrollToSection }) => {
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.5 }}
               >
-                {/* Badge */}
+                {/* Badge - with shimmer effect for promo slides */}
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: 0.1 }}
                   className="mb-6"
                 >
-                  <span className="inline-flex items-center gap-2 rounded-full border border-yellow-500/40 bg-yellow-400/10 backdrop-blur-sm px-4 py-2 text-sm font-semibold uppercase tracking-wider text-yellow-400">
-                    <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
-                    {currentData.badge}
+                  <span className={`relative inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold uppercase tracking-wider overflow-hidden ${
+                    currentData.isPromo 
+                      ? 'border-yellow-400/60 bg-gradient-to-r from-yellow-500/20 via-yellow-400/30 to-yellow-500/20 text-yellow-300' 
+                      : 'border-yellow-500/40 bg-yellow-400/10 text-yellow-400'
+                  } backdrop-blur-sm`}>
+                    {/* Shimmer effect for promo badge */}
+                    {currentData.isPromo && (
+                      <span className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+                    )}
+                    <span className={`h-2 w-2 rounded-full ${currentData.isPromo ? 'bg-yellow-300 animate-ping' : 'bg-yellow-400 animate-pulse'}`} />
+                    <span className="relative z-10">{currentData.badge}</span>
+                    {currentData.isPromo && (
+                      <Zap className="h-4 w-4 text-yellow-300 animate-pulse" />
+                    )}
                   </span>
                 </motion.div>
 

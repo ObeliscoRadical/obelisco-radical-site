@@ -38,6 +38,12 @@ Site de serviços elétricos com:
   - CTAs ajustados para secções corretas: #contact, #services, #obelisco-care, #vantagens
   - Preço destacado: "A partir de 39€/mês"
 
+- [x] **ATUALIZAÇÃO**: Carrossel v3 - A/B Test e Shimmer Effect
+  - **Obelisco Care agora é o PRIMEIRO slide** (teste A/B para conversão)
+  - Badge com **efeito shimmer animado** para slides promo
+  - Ícone Zap pulsante no badge do Obelisco Care
+  - Gradiente mais vibrante no badge promo
+
 ### FUNCIONAL
 
 #### Site Principal
