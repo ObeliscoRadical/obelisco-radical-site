@@ -24,6 +24,14 @@ Site de serviços elétricos com:
   - **Solução**: Criado modelo `CreateTechnicianRequest` e endpoint alterado para aceitar JSON
   - **Limpeza**: Removidos dados de teste (contas `test_tech_*`) da base de dados
 
+- [x] **NOVO**: Carrossel Hero Enterprise Grade implementado
+  - 4 slides com imagens geradas por IA (infraestruturas, plataforma digital, frota, qualidade)
+  - Autoplay com transição cross-fade
+  - Barras de progresso horizontais
+  - Pause on hover
+  - Totalmente responsivo (mobile/tablet/desktop)
+  - Componente: `/app/frontend/src/components/HeroCarousel.js`
+
 ### FUNCIONAL
 
 #### Site Principal
