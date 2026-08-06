@@ -1,12 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Smartphone, Bell, Zap } from 'lucide-react';
+import { X, Download, Smartphone, Bell, Zap, Share } from 'lucide-react';
 import { initPWAInstallPrompt, promptPWAInstall, isPWAInstalled, isMobileDevice } from '../utils/pwa';
+
+// Detect iOS
+const isIOS = () => {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+};
+
+// Detect if in Safari
+const isSafari = () => {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+};
 
 export function PWAInstallBanner() {
   const [canInstall, setCanInstall] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
 
   useEffect(() => {
     // Check if already dismissed in this session
@@ -21,7 +32,7 @@ export function PWAInstallBanner() {
       return;
     }
 
-    // Initialize install prompt
+    // Initialize install prompt for Android/Chrome
     initPWAInstallPrompt(setCanInstall);
 
     // Show banner after a delay (mobile gets it faster)
@@ -33,6 +44,13 @@ export function PWAInstallBanner() {
   }, []);
 
   const handleInstall = async () => {
+    // For iOS, show instructions
+    if (isIOS()) {
+      setShowIOSInstructions(true);
+      return;
+    }
+    
+    // For Android/Chrome, use native prompt
     const installed = await promptPWAInstall();
     if (installed) {
       setIsVisible(false);
@@ -44,6 +62,7 @@ export function PWAInstallBanner() {
   const handleDismiss = () => {
     setDismissed(true);
     setIsVisible(false);
+    setShowIOSInstructions(false);
     sessionStorage.setItem('pwa-banner-dismissed', 'true');
   };
 
@@ -53,6 +72,7 @@ export function PWAInstallBanner() {
   }
 
   const isMobile = isMobileDevice();
+  const isIOSDevice = isIOS();
 
   return (
     <AnimatePresence>
@@ -83,9 +103,11 @@ export function PWAInstallBanner() {
                   Instale o Obelisco Connect
                 </h3>
                 <p className="mt-1.5 text-sm leading-relaxed text-zinc-400">
-                  {isMobile 
-                    ? "Adicione ao ecrã principal do seu telemóvel para acesso mais rápido e receba notificações em tempo real!"
-                    : "Instale a aplicação no seu computador para acesso direto e receba notificações instantâneas sobre pedidos e trabalhos."
+                  {isIOSDevice 
+                    ? "Adicione ao ecrã principal para acesso rápido! Toque em Partilhar e depois 'Adicionar ao ecrã principal'."
+                    : isMobile 
+                      ? "Adicione ao ecrã principal do seu telemóvel para acesso mais rápido e receba notificações em tempo real!"
+                      : "Instale a aplicação no seu computador para acesso direto e receba notificações instantâneas sobre pedidos e trabalhos."
                   }
                 </p>
               </div>
@@ -99,6 +121,18 @@ export function PWAInstallBanner() {
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* iOS Instructions */}
+            {showIOSInstructions && (
+              <div className="mt-4 rounded-xl bg-blue-500/10 border border-blue-500/30 p-4">
+                <p className="text-sm font-medium text-blue-300 mb-2">Como instalar no iPhone/iPad:</p>
+                <ol className="text-xs text-zinc-400 space-y-1.5 list-decimal list-inside">
+                  <li>Toque no botão <Share className="h-3.5 w-3.5 inline text-blue-400" /> Partilhar na barra inferior</li>
+                  <li>Deslize para baixo e toque em &quot;Adicionar ao ecrã principal&quot;</li>
+                  <li>Toque em &quot;Adicionar&quot; no canto superior direito</li>
+                </ol>
+              </div>
+            )}
 
             {/* Features */}
             <div className="mt-4 flex flex-wrap gap-2">
@@ -126,7 +160,16 @@ export function PWAInstallBanner() {
                 Mais tarde
               </button>
               
-              {canInstall ? (
+              {isIOSDevice ? (
+                <button
+                  onClick={handleInstall}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-500 px-4 py-3 text-sm font-bold text-zinc-900 shadow-lg shadow-yellow-500/30 transition-all hover:from-yellow-300 hover:to-yellow-400"
+                  data-testid="pwa-banner-ios"
+                >
+                  <Share className="h-4 w-4" />
+                  {showIOSInstructions ? 'Entendi' : 'Como Instalar'}
+                </button>
+              ) : canInstall ? (
                 <button
                   onClick={handleInstall}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-500 px-4 py-3 text-sm font-bold text-zinc-900 shadow-lg shadow-yellow-500/30 transition-all hover:from-yellow-300 hover:to-yellow-400 hover:shadow-yellow-500/40"
@@ -137,11 +180,12 @@ export function PWAInstallBanner() {
                 </button>
               ) : (
                 <button
-                  onClick={handleDismiss}
+                  onClick={handleInstall}
                   className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-yellow-400 to-yellow-500 px-4 py-3 text-sm font-bold text-zinc-900 shadow-lg shadow-yellow-500/30 transition-all hover:from-yellow-300 hover:to-yellow-400"
                   data-testid="pwa-banner-ok"
                 >
-                  Entendi
+                  <Download className="h-4 w-4" />
+                  Instalar App
                 </button>
               )}
             </div>
