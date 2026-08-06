@@ -1895,26 +1895,6 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
         </div>
       </footer>
 
-      {/* Cart Button */}
-      <button
-        onClick={() => setCartOpen(true)}
-        className="fixed bottom-24 right-5 z-40 inline-flex items-center rounded-full bg-yellow-400 px-5 py-4 font-semibold text-zinc-950 shadow-2xl transition hover:bg-yellow-300"
-        data-testid="cart-btn"
-      >
-        <CreditCard className="mr-2 h-5 w-5" />
-        Carrinho ({cartCount})
-      </button>
-
-      {/* WhatsApp Button */}
-      <a
-        href="https://wa.me/351911132401?text=Ola,%20gostaria%20de%20pedir%20um%20orcamento."
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center rounded-full bg-green-500 px-5 py-4 font-semibold text-white shadow-2xl shadow-green-500/20 transition hover:bg-green-400"
-        data-testid="whatsapp-float-btn"
-      >
-        <MessageCircle className="mr-2 h-5 w-5" />
-        WhatsApp
-      </a>
-
       {/* Cart/Checkout Modal */}
       {cartOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm">
@@ -2828,7 +2808,6 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
       />
 
       <ElectricalAssistant />
-      <PWAInstallBanner />
     </div>
   );
 }
