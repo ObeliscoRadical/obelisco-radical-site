@@ -32,6 +32,12 @@ Site de serviços elétricos com:
   - Totalmente responsivo (mobile/tablet/desktop)
   - Componente: `/app/frontend/src/components/HeroCarousel.js`
 
+- [x] **ATUALIZAÇÃO**: Carrossel v2 - Imagens personalizadas e Obelisco Care
+  - Novas imagens: carrinhas preto mate, infraestrutura industrial, dashboard moderno
+  - Slide dedicado ao **Obelisco Care** com badges de features (Cobertura Total, Resposta 24h, Suporte Dedicado)
+  - CTAs ajustados para secções corretas: #contact, #services, #obelisco-care, #vantagens
+  - Preço destacado: "A partir de 39€/mês"
+
 ### FUNCIONAL
 
 #### Site Principal

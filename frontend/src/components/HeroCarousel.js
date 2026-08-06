@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, ChevronRight } from 'lucide-react';
+import { ArrowRight, ChevronRight, Shield, Clock, Headphones, Zap } from 'lucide-react';
 
-// Hero carousel slides data
+// Hero carousel slides data - optimized with correct CTAs
 const heroSlides = [
   {
     id: 1,
@@ -10,39 +10,45 @@ const heroSlides = [
     title: "Engenharia Elétrica & Telecomunicações",
     titleHighlight: "de Elevada Exigência",
     subtitle: "Soluções técnicas integradas com rigor, precisão e total conformidade com normas europeias.",
-    ctaPrimary: { text: "Solicitar Proposta Técnica", href: "#contacto" },
-    ctaSecondary: { text: "Ver Projetos", href: "#services" },
-    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/65464781b05bd7e6f2abd97b5768d25d4d288a5d81f7639c398380dedca52d0a.jpeg"
+    ctaPrimary: { text: "Solicitar Proposta", href: "#contact" },
+    ctaSecondary: { text: "Ver Serviços", href: "#services" },
+    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/a4ce54901cc02dc5ef81d5d24fc71ec3c9323ca2261212f90a48d2bc6bcf7452.jpeg"
   },
   {
     id: 2,
-    badge: "Tecnologia Proprietária",
-    title: "Gestão Inteligente & Monitorização",
-    titleHighlight: "Técnica em Tempo Real",
-    subtitle: "Plataforma digital avançada para controlo de métricas, eficiência operacional e suporte contínuo.",
-    ctaPrimary: { text: "Conhecer a Plataforma", href: "#obelisco-care" },
-    ctaSecondary: { text: "Funcionalidades", href: "#obelisco-care" },
-    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/30167e4be89a885c02d8505bfbd72ed989a70dfe0642b04e5f0a388acaa84234.jpeg"
+    badge: "Plano de Proteção Exclusivo",
+    title: "Obelisco Care",
+    titleHighlight: "Tranquilidade Total",
+    subtitle: "Subscreva um plano mensal e tenha acesso prioritário, manutenção preventiva e horas de serviço incluídas. A partir de 39€/mês.",
+    ctaPrimary: { text: "Ver Planos", href: "#obelisco-care" },
+    ctaSecondary: { text: "Saber Mais", href: "#vantagens" },
+    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/04e69270deed11d1760bbc2bed8e9ec6a50ceca3bec2a63a32a16d4bf95abc05.jpeg",
+    features: [
+      { icon: Shield, text: "Cobertura Total" },
+      { icon: Clock, text: "Resposta 24h" },
+      { icon: Headphones, text: "Suporte Dedicado" }
+    ],
+    isPromo: true
   },
   {
     id: 3,
     badge: "Capacidade Operacional",
-    title: "Intervenção Técnica Especializada",
-    titleHighlight: "no Terreno",
-    subtitle: "Equipas qualificadas e frota equipada para prestar assistência rápida e eficaz em toda a Grande Lisboa.",
-    ctaPrimary: { text: "Falar com Especialista", href: "#contacto" },
+    title: "Frota Técnica Especializada",
+    titleHighlight: "Pronta a Intervir",
+    subtitle: "Veículos equipados e equipas qualificadas para assistência rápida e eficaz em toda a Grande Lisboa.",
+    ctaPrimary: { text: "Contactar Agora", href: "#contact" },
     ctaSecondary: null,
-    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/f48656e92863ef50685aa03d67593ca5c910c6cbfc050edb6365dab7e380d220.jpeg"
+    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/ae660fd04f977640891de749396518532fd9377b2b16302c0ee1063f81759411.jpeg"
   },
   {
     id: 4,
     badge: "Qualidade & Segurança",
     title: "Padrões Industriais de",
     titleHighlight: "Alta Performance",
-    subtitle: "Compromisso com a segurança, fiabilidade dos materiais e execução sem falhas.",
-    ctaPrimary: { text: "As Nossas Certificações", href: "#sobre" },
+    subtitle: "Compromisso com a segurança, fiabilidade dos materiais e execução técnica sem falhas.",
+    ctaPrimary: { text: "Ver Certificações", href: "#vantagens" },
     ctaSecondary: null,
-    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/81be639ccd071eaacfda1f87c7d723f239f9990de4a507d100fc8fa8c2574e34.jpeg"
+    image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/3c91a2ae724f73b2391b8bbec25a56d43eaee98eceb0c06b921ed2da77fa47a9.jpeg"
   }
 ];
 
@@ -169,6 +175,29 @@ const HeroCarousel = ({ scrollToSection }) => {
                 >
                   {currentData.subtitle}
                 </motion.p>
+
+                {/* Obelisco Care Features - Special promo slide */}
+                {currentData.isPromo && currentData.features && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 30 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: 0.35 }}
+                    className="mt-6 flex flex-wrap gap-4"
+                  >
+                    {currentData.features.map((feature, idx) => {
+                      const FeatureIcon = feature.icon;
+                      return (
+                        <div
+                          key={idx}
+                          className="inline-flex items-center gap-2 rounded-xl border border-yellow-500/30 bg-yellow-400/5 backdrop-blur-sm px-4 py-2"
+                        >
+                          <FeatureIcon className="h-5 w-5 text-yellow-400" />
+                          <span className="text-sm font-medium text-white">{feature.text}</span>
+                        </div>
+                      );
+                    })}
+                  </motion.div>
+                )}
 
                 {/* CTAs */}
                 <motion.div
