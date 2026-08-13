@@ -12,6 +12,12 @@ Site de serviços elétricos com:
 
 ## Estado Atual (09/12/2025)
 
+### ATUALIZAÇÃO RECENTE (13/08/2026)
+- [x] **Google Analytics 4 (GA4) integrado** no frontend com o Measurement ID `G-V24WWQE39G`
+- [x] **Snippet GA4 adicionado ao HTML principal** em `/app/frontend/public/index.html` para permitir deteção pelo Google Search Console
+- [x] **Tracking de page views** ligado no React através de `/app/frontend/src/utils/analytics.js` e integração em `/app/frontend/src/App.js`
+- [x] **Validação concluída** em `/` e `/connect`: script GA4 presente no HTML, `window.gtag` ativo e sem erros de console relacionados
+
 ### CORREÇÃO CRÍTICA APLICADA (09/12/2025)
 - [x] **Bug P0 corrigido**: Login de staff falhava por inconsistência de coleção/hash
   - **Problema**: `startup_seed_accounts` escrevia em `db.technicians` com bcrypt, mas login lia de `db.staff_users` com sha256
@@ -127,7 +133,7 @@ VAPID_CLAIMS_EMAIL=mailto:obeliscoradical@gmail.com
 ```
 
 ### URLs
-- **Preview**: https://staff-dashboard-92.preview.emergentagent.com
+- **Preview**: https://obelisco-carousel.preview.emergentagent.com
 - **Connect Login**: /connect
 - **Client Dashboard**: /connect/client
 - **Tech Dashboard**: /connect/tech
@@ -140,6 +146,7 @@ VAPID_CLAIMS_EMAIL=mailto:obeliscoradical@gmail.com
 2. Obter RESEND_API_KEY real (criar conta em resend.com)
 3. Verificar domínio para emails (evitar spam)
 4. Reclamar conta Stripe para produção
+5. Revalidar a propriedade no Google Search Console após novo crawl do site
 
 ### P1 - Segurança e Qualidade
 1. Migrar `connect_token` de localStorage para cookies httpOnly

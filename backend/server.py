@@ -677,7 +677,7 @@ async def assign_service_request(request_id: str, technician_id: str, request: R
         "Novo Trabalho Atribuido",
         tech_content,
         "Ver Trabalhos",
-        "https://staff-dashboard-92.preview.emergentagent.com/connect/tech"
+        "https://obelisco-carousel.preview.emergentagent.com/connect/tech"
     )
     await send_email_async(technician.get('email'), f"⚡ Novo Trabalho - {service_req.get('customer_name', 'Cliente')}", tech_email_html)
     
@@ -858,7 +858,7 @@ async def create_work_log(data: WorkLogCreate, request: Request):
         "Servico Concluido ✓",
         customer_content,
         "Ver Historico",
-        "https://staff-dashboard-92.preview.emergentagent.com/connect/client"
+        "https://obelisco-carousel.preview.emergentagent.com/connect/client"
     )
     await send_email_async(service_req.get('customer_email'), "✅ Servico Concluido - Obelisco Radical", customer_email_html)
     
@@ -2378,11 +2378,11 @@ async def google_calendar_callback(code: str, state: str = None):
         logger.info(f"Google Calendar connected for {user_info.get('email')}")
         
         # Redirect to success page
-        return RedirectResponse(url=f"https://staff-dashboard-92.preview.emergentagent.com?calendar_connected=true")
+        return RedirectResponse(url=f"https://obelisco-carousel.preview.emergentagent.com?calendar_connected=true")
         
     except Exception as e:
         logger.error(f"Google OAuth callback error: {str(e)}")
-        return RedirectResponse(url=f"https://staff-dashboard-92.preview.emergentagent.com?calendar_error={str(e)}")
+        return RedirectResponse(url=f"https://obelisco-carousel.preview.emergentagent.com?calendar_error={str(e)}")
 
 class OAuthCodeRequest(BaseModel):
     code: str
@@ -2673,7 +2673,7 @@ def get_email_template(template_type: str, data: dict) -> tuple:
                 </div>
                 <p><strong>Descricao:</strong></p>
                 <p>{data.get('description', 'Sem descricao')}</p>
-                <a href="https://staff-dashboard-92.preview.emergentagent.com/connect/admin" class="btn">Ver no Painel Admin</a>
+                <a href="https://obelisco-carousel.preview.emergentagent.com/connect/admin" class="btn">Ver no Painel Admin</a>
             </div>
             <div class="footer">Obelisco Radical - Servicos Eletricos</div>
         </div>
@@ -2699,7 +2699,7 @@ def get_email_template(template_type: str, data: dict) -> tuple:
                 </div>
                 <p><strong>Descricao:</strong></p>
                 <p>{data.get('description', 'Sem descricao')}</p>
-                <a href="https://staff-dashboard-92.preview.emergentagent.com/connect/tech" class="btn">Ver Trabalhos</a>
+                <a href="https://obelisco-carousel.preview.emergentagent.com/connect/tech" class="btn">Ver Trabalhos</a>
             </div>
             <div class="footer">Obelisco Radical - Servicos Eletricos</div>
         </div>
@@ -2724,7 +2724,7 @@ def get_email_template(template_type: str, data: dict) -> tuple:
                 </div>
                 <p><strong>Trabalho Realizado:</strong></p>
                 <p>{data.get('work_description', 'N/A')}</p>
-                <a href="https://staff-dashboard-92.preview.emergentagent.com/connect/client" class="btn">Ver Historico</a>
+                <a href="https://obelisco-carousel.preview.emergentagent.com/connect/client" class="btn">Ver Historico</a>
             </div>
             <div class="footer">Obrigado por confiar na Obelisco Radical!</div>
         </div>

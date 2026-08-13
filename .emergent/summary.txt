@@ -1,99 +1,84 @@
-<analysis>**original_problem_statement**: The user is building a comprehensive web platform for Obelisco Radical/Connect (React + FastAPI + MongoDB). It includes a commercial site, Stripe payments, subscriptions, and a full PWA replacing previous external apps with Customer, Technician, and Admin roles. Recently, the focus shifted to fixing critical login issues in the production environment caused by missing database seed data, fixing routing/mobile menu bugs, applying code quality fixes provided via an automated report, and enhancing the PWA install banner.
+<analysis>**original_problem_statement**: The user is building a comprehensive web platform for Obelisco Radical/Connect (React + FastAPI + MongoDB). The user required critical bug fixes for staff authentication (database collection and hashing mismatches) and admin technician creation, followed by the creation of an Enterprise Grade Hero Carousel component for the main site with custom AI-generated images, A/B testing, custom CSS animations, and UI decluttering.
 
-**User's preferred language**: Portuguese. (INSTRUCT NEXT AGENT: You MUST respond in Portuguese).
+**User's preferred language**: Portuguese (INSTRUCT NEXT AGENT: You MUST respond in Portuguese only).
 
-**what currently exists?**: A monolithic React app () with an integrated PWA (). FastAPI backend with endpoints for Stripe, Emails, Obelisco Connect roles, and AI Chat. The application has separate preview and production databases, leading to syncing issues with seeded accounts.
+**what currently exists?**: A monolithic React app () with an integrated PWA (). FastAPI backend with endpoints for Stripe, Emails, Obelisco Connect roles, and AI Chat. Authentication for staff has been successfully unified into the  collection using . A new  component exists on the main page with a custom shimmer effect and custom AI images.
 
 **Last working item**:
-- Last item agent was working: Creating a manual trigger route  to bypass startup script failures and force-seed the admin/tech accounts directly into the production database using the production .
+- Last item agent was working: Adjusting the  component to ensure it only renders on the  login route and providing specific installation instructions for iOS (Safari) devices, as Playwright cannot trigger the native  event.
 - Status: USER VERIFICATION PENDING
-- Agent Testing Done: Y (in preview)
-- Which testing method agent to use? manual testing by curl / python -c. (User needs to trigger the route in production by visiting the URL).
+- Agent Testing Done: Y
+- Which testing method agent to use? manual testing by screenshot tool or user verifying on a physical mobile device.
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-Issue 1: Production Login Blocked (P0)
-Issue 2: Security Vulnerability - Sensitive Data in localStorage (P1)
-Issue 3: React Hooks - Missing Dependencies (P1)
+Issue 1: Security Vulnerability - Sensitive Data in localStorage (P1)
+Issue 2: React Hooks - Missing Dependencies (P1)
+Issue 3: Refactoring server.py Extreme Complexity (P1)
 
 Issues Detail:
-- Issue 1: Production Login Blocked
-  - Attempted fixes: Added startup seed (failed in prod). Added manual trigger route  per user request.
-  - Next debug checklist: Check with the user if visiting  on their domain successfully created the accounts. Check if they can now log in via .
-  - Why fix this issue and what will be achieved with the fix? It is an absolute blocker. The user cannot access the admin/tech dashboards in production without these accounts.
-  - Status: USER VERIFICATION PENDING
-  - Is recurring issue? Y
-  - Should Test frontend/backend/both after fix? Backend.
-  - Blocked on other issue: None.
-
-- Issue 2: Security Vulnerability - Sensitive Data in localStorage
-  - Attempted fixes: None yet (reported in Code Quality review by user).
-  - Next debug checklist: Migrate  from localStorage to httpOnly cookies in  auth routes and React fetch requests across all 6 frontend files where it is used.
+- Issue 1: Security Vulnerability - Sensitive Data in localStorage
+  - Attempted fixes: None yet (deprioritized due to user's shift to the Carousel feature).
+  - Next debug checklist: Migrate  from localStorage to httpOnly cookies in  auth routes and React fetch requests.
   - Why fix this issue and what will be achieved with the fix? High security vulnerability (XSS).
   - Status: NOT STARTED
   - Is recurring issue? N
   - Should Test frontend/backend/both after fix? Both (via testing_agent).
-  - Blocked on other issue: Issue 1.
+  - Blocked on other issue: None.
 
-- Issue 3: React Hooks - Missing Dependencies
+- Issue 2: React Hooks - Missing Dependencies
   - Attempted fixes: None.
-  - Next debug checklist: Add missing variables/functions to dependency arrays in  (lines 281, 285, 558, etc.) and Dashboards to prevent stale closures. Use  where needed.
+  - Next debug checklist: Add missing variables/functions to dependency arrays in  and Dashboards to prevent stale closures. Use  where needed.
   - Why fix this issue and what will be achieved with the fix? Prevents hard-to-debug UI state bugs and infinite re-renders.
   - Status: NOT STARTED
   - Is recurring issue? N
   - Should Test frontend/backend/both after fix? Frontend (via testing_agent).
-  - Blocked on other issue: Issue 1.
+  - Blocked on other issue: None.
+
+- Issue 3: Extreme Complexity in React/Python code
+  - Attempted fixes: None.
+  - Next debug checklist: Split  into sub-components, split  webhooks into routers.
+  - Why to solve this issue and what will be achieved with this? Unmaintainable code causing constant regression bugs.
+  - Status: NOT STARTED
+  - Is recurring issue? Y
+  - Should Test frontend/backend/both after fix? Both
 
 **In progress Task List**:
 Task 1: Admin Analytics Dashboard (P1)
-Task 2: Update Email Templates (P2)
 
 Task Detail:
 - Task 1: Admin Analytics Dashboard
-  - Where to resume:  and  ( endpoints).
+  - Where to resume:  and .
   - What will be achieved with this? Full analytics with charts for the admin.
   - Status: IN PROGRESS
   - Should Test frontend/backend/both after fix? Both.
-  - Blocked on something: Issue 1.
-
-- Task 2: Update Email Templates
-  - Where to resume:  email functions.
-  - What will be achieved with this? Professional HTML emails with logos sent to clients/techs.
-  - Status: IN PROGRESS
-  - Should Test frontend/backend/both after fix? Backend.
   - Blocked on something: None.
 
 **Upcoming and Future Tasks**:
 Upcoming Tasks:
-- (P1) Confirm and test Web Push Notifications (VAPID) end-to-end on a real device.
-- (P1) Refactor  Extreme Complexity functions (, , ).
-- (P1) Remove Array Index as Keys in React mappings ().
+- (P1) Migrate  token management to secure  cookies.
+- (P2) Refactor  routing into smaller, dedicated components.
 
 Future Tasks:
 - (P2) Remove production console statements across PWA utils.
-- (P2) Refactor  routing into smaller, dedicated components.
 - (P2) Twilio SMS Integration (Requires explicit user confirmation and ).
 
 **Completed work in this session**:
-- Fixed Python mutable default arguments in   (DONE)
-- Added empty error handling logic in , ,  (DONE)
-- Centralized test credentials from  and  into  (DONE)
-- Added Obelisco Connect link to the mobile navigation menu in  (DONE)
-- Fixed React routing bugs for  and  (DONE)
-- Upgraded  with new UI, delays, and custom text (DONE)
-- Created  route in  to force-seed admin accounts in production DB (DONE)
+- Fixed P0 bug: Staff login inconsistency by unifying all staff auth to  collection, using  hashing and  (DONE).
+- Removed the vulnerable  route (DONE).
+- Fixed Tech Creation: Refactored  backend route to accept JSON body via Pydantic instead of query params, and cleaned up rogue QA accounts (DONE).
+- Created : Built an enterprise-grade carousel with custom AI-generated images, responsive Tailwind design, and auto-play logic (DONE).
+- Implemented Obelisco Care A/B Testing: Set Obelisco Care promo as slide 1 and added a custom CSS shimmer animation to its badge in  (DONE).
+- Cleaned up UI: Removed floating WhatsApp and Cart buttons from the main site to reduce visual pollution (DONE).
+- Refined PWA Install Banner: Ensured it only displays on the  route and added iOS (Safari) specific instructions (DONE).
 
 **Earlier issues found/mentioned but not fixed**:
-Issue 1: Extreme Complexity in React/Python code
-- Debug checklist: Check Code Quality Report in history. Split  into sub-components, split  webhooks.
-- Why to solve this issue and what will be achieved with this? Unmaintainable code causing constant regression bugs.
-- Should Test frontend/backend/both after fix: Both
-- Is recurring issue? Y
+- Security:  is still in localStorage, needs migration to httpOnly cookies (identified in a previous code quality report but ignored this session due to new feature requests).
 
 **Known issue recurrence from previous fork**:
 - Issue recurrence in previous fork: Testing Agent timeouts on massive monolithic frontend files ().
 - Recurrence count: 2
-- Status: RESOLVED (by bypassing and using manual tools, but needs proper testing agent scoping next time).
+- Status: RESOLVED (Agent successfully tested backend routes this session, but large file size remains a risk).
 
 **Code Architecture**:
 
@@ -102,77 +87,67 @@ Issue 1: Extreme Complexity in React/Python code
 React, Tailwind CSS, FastAPI, MongoDB, PWA Service Workers, Framer Motion, Pytest.
 
 **key DB schema**:
-- : {email, name, role, password_hash}
-- : {email, role, ...}
+- : {email, name, role, status, password_hash}
 - : {customer_id, status, ...}
 
 **changes in tech stack**:
 - None
 
 **All files of reference**:
--  (Added  and fixed mutable args)
--  (Fixed mobile menu and routing)
--  (Redesigned banner)
--  (Created to handle test secrets securely)
--  (Added error catches)
+-  (Fixed authentication and technician creation)
+-  (Removed floating buttons, integrated )
+-  (New file for main page slider)
+-  (Added shimmer CSS animations)
+-  (Restricted to  and enhanced iOS support)
 
 **Areas that need refactoring**:
--  (Over 3000 lines, massive monolith).
--  (Functions like  and  violate single responsibility).
-- Transition  token management to secure  cookies.
+-  (Over 3000 lines).
+-  (Needs router modularization).
 
 **key api endpoints**:
--  (Temporary force-seed route)
-- 
 - 
 - 
 
 **Critical Info for New Agent**:
-- **PRODUCTION DB VS PREVIEW DB:** The user tests on their live domain which uses a SEPARATE database from your preview environment. Creating an account in your preview testing does NOT fix their production issue. The user must navigate to the newly created  route on their live domain to trigger the creation of their admin credentials. Confirm they have done this successfully before starting other work.
-- The user submitted a massive Code Quality Report. You must address the Security (Tokens in localStorage) and React Hook Dependency issues as prioritized tasks.
-- **DO NOT** implement Twilio SMS based on previous ambiguous answers. You must explicitly ask the user and use  if they confirm.
+- **PRODUCTION VS PREVIEW:** The user has a separate live production environment. If the user reports issues, always verify if it's occurring in production or preview. Do NOT provide preview URLs or deployment URLs directly in your responses or memory files.
+- The user tends to pivot rapidly from critical bugs (e.g., Code Quality reports) to new visual features (e.g., Carousels). You must balance fulfilling their feature requests while keeping track of P1 tech debt (like migrating localStorage tokens to httpOnly cookies).
+- The  relies on the  which is not triggered in the headless Playwright automated testing environment. Testing this requires manual verification on a real device.
 
 **documents and test reports created in this job**:
--  (Read this for auth testing)
-- 
+-  (Auth bug test)
+-  (Create tech test)
+-  (Updated with new Hero Carousel info)
 
 **Last 10 User Messages and any pending HUMAN messages**:
-1. User asked for confirmation of plan. (Done)
-2. User reported cannot login as admin/tech, asked where to create them. (Agent debugged, found preview DB empty).
-3. User clarified no cloudflare account (regarding cache).
-4. User tried login again, still fails. (Agent created accounts in preview DB).
-5. User pasted massive Code Quality Report demanding fixes. (Agent fixed some criticals).
-6. User reported already resolved that and still no access on live domain. (Agent realized prod DB is separate, added startup seed).
-7. User reported I did deploy, stop stalling. (Agent realized startup seed didn't work in prod, used support agent).
-8. User agreed to contact support. (Done).
-9. User issued direct command: Forget support. Create to force create admin. (Agent created route).
-10. User specified  logic for production. (Agent confirmed code inherently handles this).
+1. User asked to test the PWA installation flow on a real device.
+2. User specified they want the PWA banner ONLY on the login screen ().
+3. User complained about visual pollution and requested removing all floating buttons except the AI chat.
+4. User requested adding a shimmer effect to the Obelisco Care badge and making it the first slide for an A/B test.
+5. User asked to adjust CTA links and add an Obelisco Care promo slide, requesting images with their logo and matte black vans.
+6. User agreed to the cost of the carousel and asked to generate the images.
+7. User requested an estimate to create an Enterprise Grade Hero Carousel with specific slides and aesthetics.
+8. User reported a bug: cannot add technicians, and the admin dashboard is full of test accounts.
+9. User asked for a status check on whether all phases were complete.
+10. User reported the root cause of the staff auth bug (bcrypt vs sha256) and ordered the removal of .
+*Pending:* The user needs to verify the PWA installation on a physical device.
 
 **Project Health Check**:
-- Broken: Production Login (Pending user execution of )
+- Broken: None in preview environment. (Production requires user deployment).
 
 **3rd Party Integrations**:
 - Stripe (Payments) — requires User API Key
 - Emergent Email Service — requires User API Key ()
 - Web Push API (VAPID) — keys generated in environment
-- OpenAI (Electrical Assistant) — uses Emergent LLM Key
+- OpenAI / Gemini (Electrical Assistant / Image Gen) — uses Emergent LLM Key
 
 **Testing status**:
-- Testing agent used after significant changes: NO (Agent forgot/relied on manual testing due to prior timeout trauma).
+- Testing agent used after significant changes: YES
 - Troubleshoot agent used after agent stuck in loop: NO
-- Test files created: None new, but refactored .
-- Known regressions: None detected in preview.
+- Test files created: None (existing tests were executed and passed)
+- Known regressions: None
 
 **Credentials to test flow**:
-Refer to  (admin@obelisco.pt / admin123).
+Refer to  (e.g., admin@obelisco.pt)
 
 **What agent forgot to execute**:
-- The agent forgot to run  in  mode after altering  with new routes and modifying React routing logic in .
-- The agent forgot to update  at the end of the session.
-
-**Debugging checklist for current issue**:
-    Issue: User cannot log in to production (Production DB missing accounts)
-    Frontend files to check: None
-    Backend files to check:  (Verify  endpoint logic uses  correctly)
-    Database to check: Preview DB vs Prod DB sync logic.
-    Steps: Await user confirmation that hitting  in production returned a success message and allowed them to log in.</analysis>
+The agent successfully executed all user requests, but bypassed fixing the previously identified P1 Code Quality issues (moving tokens from  to  cookies) because the user immediately requested the Hero Carousel feature.</analysis>

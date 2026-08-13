@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import ElectricalAssistant from "./components/ElectricalAssistant";
 import PWAInstallBanner from "./components/PWAInstallBanner";
 import HeroCarousel from "./components/HeroCarousel";
@@ -8,6 +7,7 @@ import ConnectLogin from "./pages/ConnectLogin";
 import ConnectClientDashboard from "./pages/ConnectClientDashboard";
 import ConnectTechDashboard from "./pages/ConnectTechDashboard";
 import ConnectAdminDashboard from "./pages/ConnectAdminDashboard";
+import { trackPageView } from "./utils/analytics";
 import {
   Menu,
   X,
@@ -788,6 +788,10 @@ export default function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
+  useEffect(() => {
+    trackPageView(`${currentPath}${window.location.search}`);
+  }, [currentPath]);
+
   // Handle Connect login
   const handleConnectLogin = (user) => {
     setConnectUser(user);
@@ -1423,7 +1427,9 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                   ))}
                 </div>
 
-                <p className="leading-7 text-zinc-300">"{item.text}"</p>
+                <p className="leading-7 text-zinc-300">
+                  &ldquo;{item.text}&rdquo;
+                </p>
                 <div className="mt-5 font-semibold text-white">{item.name}</div>
               </motion.div>
             ))}

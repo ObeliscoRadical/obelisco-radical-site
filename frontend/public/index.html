@@ -26,6 +26,20 @@
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+        <!-- Google Analytics 4 -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=%REACT_APP_GA_MEASUREMENT_ID%"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+                window.dataLayer.push(arguments);
+            }
+            window.gtag = gtag;
+            gtag("js", new Date());
+            gtag("config", "%REACT_APP_GA_MEASUREMENT_ID%", {
+                send_page_view: false,
+            });
+        </script>
         
         <title>Obelisco Radical - Eletricidade</title>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>

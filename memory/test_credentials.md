@@ -21,13 +21,13 @@
 ## Como Testar
 
 ### Login Cliente
-1. Aceder a: https://staff-dashboard-92.preview.emergentagent.com/connect
+1. Aceder a: https://obelisco-carousel.preview.emergentagent.com/connect
 2. Manter "Cliente" selecionado
 3. Inserir: `teste.obelisco@gmail.com`
 4. Clicar "Aceder com Email"
 
 ### Login Admin/Técnico
-1. Aceder a: https://staff-dashboard-92.preview.emergentagent.com/connect
+1. Aceder a: https://obelisco-carousel.preview.emergentagent.com/connect
 2. Clicar em "Equipa / Admin"
 3. Inserir email e password
 4. Clicar "Entrar"
@@ -38,5 +38,5 @@
 - **CVC:** Qualquer 3 dígitos (ex: 123)
 
 ## URLs
-- **Site Principal:** https://staff-dashboard-92.preview.emergentagent.com
-- **Obelisco Connect:** https://staff-dashboard-92.preview.emergentagent.com/connect
+- **Site Principal:** https://obelisco-carousel.preview.emergentagent.com
+- **Obelisco Connect:** https://obelisco-carousel.preview.emergentagent.com/connect

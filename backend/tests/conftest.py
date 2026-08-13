@@ -2,7 +2,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://staff-dashboard-92.preview.emergentagent.com').rstrip('/')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://obelisco-carousel.preview.emergentagent.com').rstrip('/')
 
 # Test credentials - loaded from environment variables with defaults for test environment
 # In production, these should be set via environment variables
