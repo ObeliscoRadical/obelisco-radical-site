@@ -17,6 +17,7 @@ Site de serviços elétricos com:
 - [x] **Snippet GA4 adicionado ao HTML principal** em `/app/frontend/public/index.html` para permitir deteção pelo Google Search Console
 - [x] **Tracking de page views** ligado no React através de `/app/frontend/src/utils/analytics.js` e integração em `/app/frontend/src/App.js`
 - [x] **Validação concluída** em `/` e `/connect`: script GA4 presente no HTML, `window.gtag` ativo e sem erros de console relacionados
+- [x] **Nova secret de backend adicionada no preview**: `SITE_PUBLISH_SHARED_SECRET` em `/app/backend/.env`, com reinício e validação da API concluídos
 
 ### CORREÇÃO CRÍTICA APLICADA (09/12/2025)
 - [x] **Bug P0 corrigido**: Login de staff falhava por inconsistência de coleção/hash
