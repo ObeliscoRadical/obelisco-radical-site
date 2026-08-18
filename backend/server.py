@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Request, Header
 from fastapi.responses import RedirectResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -12,7 +12,7 @@ import io
 import base64
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from typing import Any, List, Literal, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
 from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -78,6 +78,7 @@ GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
 GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 GOOGLE_REDIRECT_URI = os.environ.get('GOOGLE_REDIRECT_URI')
 GOOGLE_SCOPES = ['https://www.googleapis.com/auth/calendar']
+SITE_PUBLISH_SHARED_SECRET = os.environ.get('SITE_PUBLISH_SHARED_SECRET')
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -300,6 +301,26 @@ class CreateTechnicianRequest(BaseModel):
     password: str
     phone: Optional[str] = None
     specialties: Optional[List[str]] = None
+
+class SiteInboundRequest(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    operation: Literal["upsert", "delete"]
+    remote_entry_id: Optional[str] = None
+    kind: Optional[str] = None
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    excerpt: Optional[str] = None
+    intro: Optional[str] = None
+    sections: Optional[Any] = None
+    seo_keyword: Optional[str] = None
+    seo_title: Optional[str] = None
+    seo_description: Optional[str] = None
+    strategy_reason: Optional[str] = None
+    objective: Optional[str] = None
+    campaign_label: Optional[str] = None
+    source_app: Optional[str] = None
+    source_company_name: Optional[str] = None
 
 class StaffUser(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -1274,6 +1295,68 @@ async def get_status_checks():
         if isinstance(check['timestamp'], str):
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     return status_checks
+
+def build_site_content_lookup(remote_entry_id: Optional[str], slug: Optional[str]) -> dict:
+    filters = []
+    if remote_entry_id:
+        filters.append({"remote_entry_id": remote_entry_id})
+    if slug:
+        filters.append({"slug": slug})
+
+    if not filters:
+        raise HTTPException(status_code=400, detail="remote_entry_id ou slug e obrigatorio")
+
+    if len(filters) == 1:
+        return filters[0]
+
+    return {"$or": filters}
+
+@api_router.post("/public/site/inbound")
+async def public_site_inbound(
+    payload: SiteInboundRequest,
+    x_site_publish_secret: Optional[str] = Header(default=None, alias="X-Site-Publish-Secret")
+):
+    if not SITE_PUBLISH_SHARED_SECRET or x_site_publish_secret != SITE_PUBLISH_SHARED_SECRET:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    lookup_query = build_site_content_lookup(payload.remote_entry_id, payload.slug)
+    now_iso = datetime.now(timezone.utc).isoformat()
+
+    if payload.operation == "delete":
+        existing_entry = await db.site_content_entries.find_one(lookup_query, {"_id": 0})
+        if not existing_entry:
+            raise HTTPException(status_code=404, detail="Conteudo nao encontrado")
+
+        await db.site_content_entries.delete_one({"id": existing_entry["id"]})
+        deleted_entry = {
+            **existing_entry,
+            "operation": "delete",
+            "deleted": True,
+            "deleted_at": now_iso,
+        }
+        return {"ok": True, "entry": deleted_entry}
+
+    existing_entry = await db.site_content_entries.find_one(lookup_query, {"_id": 0})
+    created_at = existing_entry.get("created_at", now_iso) if existing_entry else now_iso
+    entry_id = existing_entry.get("id") if existing_entry else str(uuid.uuid4())
+
+    entry_doc = payload.model_dump(exclude_none=True)
+    entry_doc.update({
+        "id": entry_id,
+        "created_at": created_at,
+        "updated_at": now_iso,
+    })
+
+    if existing_entry:
+        await db.site_content_entries.update_one(
+            {"id": entry_id},
+            {"$set": entry_doc}
+        )
+    else:
+        await db.site_content_entries.insert_one(entry_doc)
+
+    saved_entry = await db.site_content_entries.find_one({"id": entry_id}, {"_id": 0})
+    return {"ok": True, "entry": saved_entry}
 
 # ==================== EMAIL FUNCTIONS ====================
 
@@ -3097,6 +3180,19 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_seed_accounts():
     """Create default admin and technician accounts if they don't exist - uses staff_users collection"""
+    await db.site_content_entries.create_index(
+        "remote_entry_id",
+        name="site_content_remote_entry_id_idx",
+        unique=True,
+        sparse=True,
+    )
+    await db.site_content_entries.create_index(
+        "slug",
+        name="site_content_slug_idx",
+        unique=True,
+        sparse=True,
+    )
+
     # Read credentials from environment (with defaults for dev)
     admin_email = os.environ.get('ADMIN_STAFF_EMAIL', 'admin@obelisco.pt')
     admin_password = os.environ.get('ADMIN_STAFF_PASSWORD', 'admin123')

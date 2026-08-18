@@ -40,3 +40,7 @@
 ## URLs
 - **Site Principal:** https://obelisco-carousel.preview.emergentagent.com
 - **Obelisco Connect:** https://obelisco-carousel.preview.emergentagent.com/connect
+
+## Endpoint de Publicação de Conteúdo
+- **Preview URL:** https://obelisco-carousel.preview.emergentagent.com/api/public/site/inbound
+- **Header obrigatório:** `X-Site-Publish-Secret: local-site-publish-secret`

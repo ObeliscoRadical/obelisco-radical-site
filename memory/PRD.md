@@ -18,6 +18,9 @@ Site de serviços elétricos com:
 - [x] **Tracking de page views** ligado no React através de `/app/frontend/src/utils/analytics.js` e integração em `/app/frontend/src/App.js`
 - [x] **Validação concluída** em `/` e `/connect`: script GA4 presente no HTML, `window.gtag` ativo e sem erros de console relacionados
 - [x] **Nova secret de backend adicionada no preview**: `SITE_PUBLISH_SHARED_SECRET` em `/app/backend/.env`, com reinício e validação da API concluídos
+- [x] **Novo endpoint backend criado**: `POST /api/public/site/inbound` para receber/publicar conteúdo vindo do CEO AI com validação por `X-Site-Publish-Secret`
+- [x] **Persistência MongoDB adicionada**: coleção `site_content_entries` com índices únicos e sparse em `remote_entry_id` e `slug`
+- [x] **QA concluído no preview**: testes automáticos passaram 100% para 401 sem secret, upsert, update, delete e edge cases do endpoint inbound (`/app/test_reports/iteration_10.json`)
 
 ### CORREÇÃO CRÍTICA APLICADA (09/12/2025)
 - [x] **Bug P0 corrigido**: Login de staff falhava por inconsistência de coleção/hash
@@ -117,6 +120,9 @@ Site de serviços elétricos com:
 **Reports:**
 - `GET /api/reports/monthly/{subscription_id}` - PDF mensal
 - `GET /api/reports/subscription-summary/{subscription_id}` - Resumo JSON
+
+**Site Content Inbound:**
+- `POST /api/public/site/inbound` - Receber conteúdo publicado externamente (CEO AI) com `X-Site-Publish-Secret`
 
 ### CONFIGURAÇÃO (.env)
 
