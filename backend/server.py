@@ -321,6 +321,12 @@ class SiteInboundRequest(BaseModel):
     campaign_label: Optional[str] = None
     source_app: Optional[str] = None
     source_company_name: Optional[str] = None
+    source_company_id: Optional[str] = None
+    cta_label: Optional[str] = None
+    cta_url: Optional[str] = None
+    hero_image_url: Optional[str] = None
+    public_url: Optional[str] = None
+    published_at: Optional[str] = None
 
 class StaffUser(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -1357,6 +1363,51 @@ async def public_site_inbound(
 
     saved_entry = await db.site_content_entries.find_one({"id": entry_id}, {"_id": 0})
     return {"ok": True, "entry": saved_entry}
+
+@api_router.get("/public/site/entries")
+async def public_site_entries(kind: str = "article", limit: int = 20):
+    safe_limit = max(1, min(limit, 50))
+    rows = await db.site_content_entries.find(
+        {"kind": kind}, {"_id": 0}
+    ).sort("updated_at", -1).to_list(safe_limit)
+    return {"entries": rows}
+
+@api_router.get("/public/site/article/{slug}")
+async def public_site_article(slug: str):
+    row = await db.site_content_entries.find_one({"kind": "article", "slug": slug}, {"_id": 0})
+    if not row:
+        raise HTTPException(status_code=404, detail="Artigo nao encontrado")
+    return {"entry": row}
+
+@api_router.get("/public/site/page/{slug}")
+async def public_site_page(slug: str):
+    row = await db.site_content_entries.find_one({"kind": "page", "slug": slug}, {"_id": 0})
+    if not row:
+        raise HTTPException(status_code=404, detail="Pagina nao encontrada")
+    return {"entry": row}
+
+@api_router.get("/public/site/sections")
+async def public_site_sections(slots: str = ""):
+    slot_keys = [item.strip() for item in (slots or "").split(",") if item.strip()]
+    query = {"kind": "section_override"}
+    if slot_keys:
+        query["slot_key"] = {"$in": slot_keys}
+    rows = await db.site_content_entries.find(query, {"_id": 0}).to_list(100)
+    payload = {row["slot_key"]: row for row in rows if row.get("slot_key")}
+    return {"sections": payload}
+
+@api_router.post("/public/site/view/{kind}/{slug}")
+async def public_site_track_view(kind: str, slug: str):
+    if kind not in {"article", "page"}:
+        raise HTTPException(status_code=400, detail="Tipo invalido")
+    row = await db.site_content_entries.find_one({"kind": kind, "slug": slug})
+    if not row:
+        raise HTTPException(status_code=404, detail="Conteudo nao encontrado")
+    metrics = row.get("metrics") or {"views": 0}
+    metrics["views"] = int(metrics.get("views", 0) or 0) + 1
+    metrics["last_view_at"] = datetime.now(timezone.utc).isoformat()
+    await db.site_content_entries.update_one({"id": row["id"]}, {"$set": {"metrics": metrics}})
+    return {"ok": True, "views": metrics["views"]}
 
 # ==================== EMAIL FUNCTIONS ====================
 

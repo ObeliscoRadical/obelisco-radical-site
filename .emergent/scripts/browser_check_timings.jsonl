@@ -1,0 +1,1 @@
+{"ts": "2026-08-18T09:43:48", "name": "insight-article-renders", "mode": "ran-inline", "url": "http://localhost:3000/insights/como-evitar-sobrecargas-eletricas", "passed": false, "total_ms": 670, "pw_import_ms": 332, "launch_ms": null, "first_goto_ms": null, "body_ms": null, "body_gotos": []}

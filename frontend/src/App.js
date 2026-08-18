@@ -7,6 +7,7 @@ import ConnectLogin from "./pages/ConnectLogin";
 import ConnectClientDashboard from "./pages/ConnectClientDashboard";
 import ConnectTechDashboard from "./pages/ConnectTechDashboard";
 import ConnectAdminDashboard from "./pages/ConnectAdminDashboard";
+import InsightArticle from "./pages/InsightArticle";
 import { trackPageView } from "./utils/analytics";
 import {
   Menu,
@@ -908,7 +909,13 @@ export default function App() {
   };
 
   // ============ CONDITIONAL ROUTING (after all hooks) ============
-  
+
+  // Route: /insights/{slug} - Published article page
+  if (currentPath.startsWith('/insights/')) {
+    const insightSlug = currentPath.replace('/insights/', '').split('/')[0];
+    return <InsightArticle slug={insightSlug} />;
+  }
+
   // Route: /connect/client - Client Dashboard
   if (currentPath === '/connect/client') {
     return <ConnectClientDashboard />;
