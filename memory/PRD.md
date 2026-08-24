@@ -21,6 +21,8 @@ Site de serviços elétricos com:
 - [x] **Novo endpoint backend criado**: `POST /api/public/site/inbound` para receber/publicar conteúdo vindo do CEO AI com validação por `X-Site-Publish-Secret`
 - [x] **Persistência MongoDB adicionada**: coleção `site_content_entries` com índices únicos e sparse em `remote_entry_id` e `slug`
 - [x] **QA concluído no preview**: testes automáticos passaram 100% para 401 sem secret, upsert, update, delete e edge cases do endpoint inbound (`/app/test_reports/iteration_10.json`)
+- [x] **Deploy readiness ajustada**: URLs fixas foram removidas do backend/frontend e substituídas por `APP_URL` e `REACT_APP_ORDERS_API`
+- [x] **Health check de deploy aprovado**: varrimento de deployment sem blockers, compilação ok e app pronta para novo deploy
 
 ### CORREÇÃO CRÍTICA APLICADA (09/12/2025)
 - [x] **Bug P0 corrigido**: Login de staff falhava por inconsistência de coleção/hash

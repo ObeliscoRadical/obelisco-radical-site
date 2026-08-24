@@ -51,8 +51,8 @@ import {
 const logoUrl = "https://customer-assets.emergentagent.com/job_5fce1f4d-80cf-4626-b6e9-65e04d47c472/artifacts/h167wiyk_Captura%20de%20Tela%202026-03-12%20a%CC%80s%2021.48.12.png";
 
 // API URLs
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const ORDERS_API = "https://tech-app-obelisco.emergent.host/api";
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const ORDERS_API = process.env.REACT_APP_ORDERS_API;
 
 const services = [
   // === SERVIÇOS PRINCIPAIS ===
