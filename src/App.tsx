@@ -1,9 +1,7 @@
 import logo from "./assets/logo.png";
 import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import ElectricalAssistant from "./components/ElectricalAssistant";
 import {
-  Menu,
   X,
   Zap,
   ShieldCheck,
@@ -161,17 +159,6 @@ function scrollToSection(id: string) {
   document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
 }
 
-function BrandLogo() {
-  return (
-    <div className="flex items-center gap-3">
-      <img
-        src={logo}
-        alt="Obelisco Radical Eletricidade"
-        className="h-14 w-auto rounded-lg object-contain mix-blend-lighten sm:h-16"
-      />
-    </div>
-  );
-}
 
 function BookingModal({
   open,
@@ -465,8 +452,7 @@ function BookingModal({
   );
 }
 
-export default function ObeliscoRadicalSite() {
-  const [menuOpen, setMenuOpen] = useState(false);
+function HomeContent() {
   const [bookingOpen, setBookingOpen] = useState(false);
   const [selectedService, setSelectedService] = useState<string | undefined>();
 
@@ -483,14 +469,6 @@ export default function ObeliscoRadicalSite() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
-
-  const nav = [
-    { label: "Início", id: "hero" },
-    { label: "Serviços", id: "services" },
-    { label: "Vantagens", id: "vantagens" },
-    { label: "FAQ", id: "faq" },
-    { label: "Contacto", id: "contact" },
-  ];
 
   const openBooking = (serviceId?: string) => {
     setSelectedService(serviceId);
@@ -614,76 +592,13 @@ Aguardo confirmação.`;
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <>
       <style>{`
         html { scroll-behavior: smooth; }
         body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
         h1,h2,h3,h4,h5,h6 { font-family: Oswald, Inter, sans-serif; }
         .electric-glow { text-shadow: 0 0 16px rgba(250, 204, 21, 0.35), 0 0 36px rgba(250, 204, 21, 0.12); }
       `}</style>
-
-      <header className="fixed left-0 right-0 top-0 z-40 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-          <button
-            onClick={() => scrollToSection("hero")}
-            className="text-left"
-          >
-            <BrandLogo />
-          </button>
-
-          <nav className="hidden items-center gap-7 md:flex">
-            {nav.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => scrollToSection(item.id)}
-                className="text-sm font-medium text-zinc-400 transition hover:text-yellow-400"
-              >
-                {item.label}
-              </button>
-            ))}
-
-            <a
-              href="https://wa.me/351911132401?text=Olá,%20gostaria%20de%20pedir%20um%20orçamento."
-              className="rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-yellow-300"
-            >
-              WhatsApp direto
-            </a>
-          </nav>
-
-          <button
-            onClick={() => setMenuOpen((v) => !v)}
-            className="rounded-xl border border-zinc-800 p-2 text-zinc-300 md:hidden"
-          >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
-        </div>
-
-        {menuOpen && (
-          <div className="border-t border-zinc-800 bg-zinc-950 px-4 py-4 md:hidden">
-            <div className="space-y-3">
-              {nav.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    scrollToSection(item.id);
-                    setMenuOpen(false);
-                  }}
-                  className="block w-full rounded-xl px-3 py-3 text-left text-zinc-300 transition hover:bg-zinc-900 hover:text-yellow-400"
-                >
-                  {item.label}
-                </button>
-              ))}
-
-              <a
-                href="https://wa.me/351911132401?text=Olá,%20gostaria%20de%20pedir%20um%20orçamento."
-                className="block w-full rounded-2xl bg-yellow-400 px-5 py-3 text-center font-semibold text-zinc-950"
-              >
-                WhatsApp direto
-              </a>
-            </div>
-          </div>
-        )}
-      </header>
 
       <main>
         <section
@@ -1468,7 +1383,20 @@ Aguardo confirmação.`;
         initialService={selectedService}
       />
 
-      <ElectricalAssistant />
+      <button
+        onClick={() => setCartOpen(true)}
+        className="fixed bottom-24 right-5 z-40 inline-flex items-center rounded-full bg-yellow-400 px-5 py-4 font-semibold text-zinc-950 shadow-2xl transition hover:bg-yellow-300"
+      >
+        Carrinho ({cartCount})
+      </button>
+    </>
+  );
+}
+
+export default function ObeliscoRadicalSite() {
+  return (
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <HomeContent />
     </div>
   );
 }
