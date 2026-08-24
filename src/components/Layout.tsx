@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, useNavigate, Link } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import logo from "../assets/logo.png";
 import ElectricalAssistant from "./ElectricalAssistant";
 import { Menu, X, MessageCircle, Zap } from "lucide-react";
@@ -26,26 +26,25 @@ function scrollToSection(id: string) {
 export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const navigate = useNavigate();
 
   // Home page nav: scroll links
-  // Other pages: links to routes
+  // Other pages: navigation
   const nav = [
     { label: "Início", id: "hero", href: "/#hero" },
     { label: "Serviços", id: "services", href: "/#services" },
+    { label: "Planos", id: "planos", href: "/#planos" },
     { label: "Vantagens", id: "vantagens", href: "/#vantagens" },
-    { label: "FAQ", id: "faq", href: "/#faq" },
     { label: "Contacto", id: "contact", href: "/#contact" },
   ];
 
   const handleNavClick = (item: { label: string; id: string; href: string }) => {
+    setMenuOpen(false);
     if (location.pathname === "/") {
       scrollToSection(item.id);
-      setMenuOpen(false);
     } else {
-      // Navigate to home and scroll on load
-      navigate("/" + item.href);
-      setMenuOpen(false);
+      // Navigate via href for cross-route navigation
+      // eslint-disable-next-line react-hooks/immutability
+      window.location.href = item.href;
     }
   };
 
@@ -67,11 +66,14 @@ export function Header() {
             </button>
           ))}
 
+          {/* Obelisco Labs — novo item */}
           <Link
-            to="/solucoes"
+            to="/labs"
             className="text-sm font-medium text-zinc-400 transition hover:text-yellow-400"
           >
-            Soluções Digitais
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:border-violet-500/60 hover:bg-violet-500/20 transition">
+              🔬 Obelisco Labs
+            </span>
           </Link>
 
           <a
@@ -104,11 +106,11 @@ export function Header() {
             ))}
 
             <Link
-              to="/solucoes"
+              to="/labs"
               onClick={() => setMenuOpen(false)}
               className="block w-full rounded-xl px-3 py-3 text-left text-zinc-300 transition hover:bg-zinc-900 hover:text-yellow-400"
             >
-              Soluções Digitais
+              🔬 Obelisco Labs
             </Link>
 
             <a
@@ -127,17 +129,26 @@ export function Header() {
 export function Footer() {
   return (
     <footer className="border-t border-zinc-800 px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 text-sm text-zinc-500 sm:flex-row">
+      <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 text-sm text-zinc-500 sm:flex-row">
         <div className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-yellow-400" />
           <span>© {new Date().getFullYear()} Obelisco Radical Eletricidade</span>
         </div>
 
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:gap-8 sm:text-right">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:gap-12">
           <div>
-            <div className="text-white">Soluções Digitais</div>
-            <Link to="/solucoes" className="text-zinc-500 hover:text-yellow-400">
-              DOMOS
+            <div className="text-white font-semibold">Obelisco Radical</div>
+            <div className="text-xs text-zinc-500">Serviços técnicos</div>
+            <Link to="/" className="text-zinc-500 hover:text-yellow-400 text-xs">
+              Voltar ao site principal
+            </Link>
+          </div>
+
+          <div>
+            <div className="text-white font-semibold">Obelisco Labs</div>
+            <div className="text-xs text-zinc-500">Produtos digitais</div>
+            <Link to="/labs" className="text-zinc-500 hover:text-violet-400 text-xs">
+              Acessar divisão de tecnologia
             </Link>
           </div>
 
@@ -166,3 +177,4 @@ export function FloatingActions() {
     </>
   );
 }
+

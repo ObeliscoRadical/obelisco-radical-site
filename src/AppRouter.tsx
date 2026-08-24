@@ -1,8 +1,8 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { Header, Footer, FloatingActions } from "./components/Layout";
-import { SolucoesPage } from "./pages/Solucoes";
-import { DomosPage } from "./pages/Domos";
 import ObeliscoRadicalSite from "./App";
+import { LabsPage } from "./pages/Labs";
+import { DomosPage } from "./pages/Domos";
 
 export default function AppRouter() {
   return (
@@ -10,9 +10,18 @@ export default function AppRouter() {
       <Header />
       <main className="flex-1">
         <Routes>
+          {/* Obelisco Radical — serviços técnicos */}
           <Route path="/" element={<ObeliscoRadicalSite />} />
-          <Route path="/solucoes" element={<SolucoesPage />} />
-          <Route path="/domos" element={<DomosPage />} />
+
+          {/* Obelisco Labs — tecnologia e produtos digitais */}
+          <Route path="/labs" element={<LabsPage />} />
+          <Route path="/labs/domos" element={<DomosPage />} />
+
+          {/* Redirect legado: /domos → /labs/domos */}
+          <Route path="/domos" element={<Navigate to="/labs/domos" replace />} />
+
+          {/* 404 catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       <Footer />
@@ -20,3 +29,4 @@ export default function AppRouter() {
     </div>
   );
 }
+
