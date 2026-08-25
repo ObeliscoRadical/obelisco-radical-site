@@ -17,6 +17,68 @@
     <!-- SCRIPT DO CHAT -->
     <script src="https://obeliscoradical.pt/electrical-assistant.js"></script>
 
+    <!-- Injetor de link Obelisco Labs (sem alterar App.tsx) -->
+    <script>
+      function injectLabsLink() {
+        // Detecta se é a página Radical (não Labs)
+        const isLabsPage = window.location.pathname.includes('/labs') || window.location.hash.includes('/labs');
+        if (isLabsPage) return;
+
+        // Aguarda o menu ser renderizado (máx 3 segundos)
+        let attempts = 0;
+        const interval = setInterval(() => {
+          attempts++;
+
+          // Procura pelo nav element no DOM
+          const navs = document.querySelectorAll('nav');
+          let nav = null;
+
+          for (const n of navs) {
+            if (n.textContent.includes('Contacto') || n.textContent.includes('FAQ')) {
+              nav = n;
+              break;
+            }
+          }
+
+          if (nav && attempts < 30) {
+            // Verifica se Labs link já existe
+            if (!nav.textContent.includes('Labs')) {
+              // Cria o link para Labs
+              const labsLink = document.createElement('a');
+              labsLink.href = '#/labs';
+              labsLink.className = 'text-sm font-medium text-zinc-400 transition hover:text-yellow-400';
+              labsLink.textContent = '🔬 Obelisco Labs';
+
+              // Insere antes do último elemento (WhatsApp)
+              const lastButton = nav.querySelector('a:last-child');
+              if (lastButton) {
+                lastButton.parentNode.insertBefore(labsLink, lastButton);
+              } else {
+                nav.appendChild(labsLink);
+              }
+
+              // Para o interval
+              clearInterval(interval);
+            }
+          }
+
+          if (attempts >= 30) {
+            clearInterval(interval);
+          }
+        }, 100);
+      }
+
+      // Executa quando o DOM está pronto
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectLabsLink);
+      } else {
+        injectLabsLink();
+      }
+
+      // Re-executa se houver navegação (SPA)
+      window.addEventListener('hashchange', injectLabsLink);
+    </script>
+
   </head>
 
   <body>
