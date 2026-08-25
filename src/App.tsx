@@ -643,6 +643,13 @@ Aguardo confirmação.`;
             ))}
 
             <a
+              href="#/labs"
+              className="text-sm font-medium text-zinc-400 transition hover:text-yellow-400"
+            >
+              🔬 Obelisco Labs
+            </a>
+
+            <a
               href="https://wa.me/351911132401?text=Olá,%20gostaria%20de%20pedir%20um%20orçamento."
               className="rounded-2xl bg-yellow-400 px-5 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-yellow-300"
             >
@@ -673,6 +680,14 @@ Aguardo confirmação.`;
                   {item.label}
                 </button>
               ))}
+
+              <a
+                href="#/labs"
+                onClick={() => setMenuOpen(false)}
+                className="block w-full rounded-xl px-3 py-3 text-left text-zinc-300 transition hover:bg-zinc-900 hover:text-yellow-400"
+              >
+                🔬 Obelisco Labs
+              </a>
 
               <a
                 href="https://wa.me/351911132401?text=Olá,%20gostaria%20de%20pedir%20um%20orçamento."
