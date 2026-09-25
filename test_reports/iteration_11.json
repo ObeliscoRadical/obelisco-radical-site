@@ -1,0 +1,34 @@
+{
+  "summary": "Verified Stripe VAT/IVA (23%) integration. Backend: 5/5 pytest passing - GET /api/stripe/plans returns vat_included=false & vat_rate=23; POST /api/stripe/create-checkout-session and /api/stripe/create-subscription-session both create Stripe sessions with automatic_tax.enabled=true and billing_address_collection='required' (verified by retrieving the created sessions via Stripe SDK). Invalid subscription lookup_key returns 404. Site inbound endpoint regression check passed. Frontend (Playwright): all 3 Care plan cards (Essencial, Preventivo, Total) render data-testid='plan-{id}-vat-note' with '+ IVA (23%)'; Subscription Modal shows '+ IVA (23%)' next to plan price and note 'O IVA (23%) e calculado automaticamente e adicionado no pagamento seguro pelo Stripe.' via data-testid='subscription-vat-note'; cart checkout page shows 'Total (sem IVA)' label and data-testid='cart-vat-note' with '+ IVA (23%), calculado automaticamente no pagamento seguro pelo Stripe'. PaymentMethodModal (data-testid='payment-vat-note') code verified at App.js:665 - only triggered after full form completion so not exercised in UI test but wiring is correct. Anual toggle not clicked (accessible name mismatch due to nested '-2 meses' badge span) but the VAT note markup is identical for monthly/annual (outside the price conditional at App.js 1538-1725), so verified by code inspection.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Cart checkout form", "issues": ["Native browser date picker (mm/dd/yyyy) used instead of shadcn calendar - pre-existing, unrelated to VAT feature"]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_stripe_vat.py",
+    "/app/test_reports/pytest/stripe_vat_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "App.js is 2825 lines - exceeds 700 line guideline; consider splitting PaymentMethodModal, cart/checkout page, and Care plans section into separate components/files",
+    "PaymentMethodModal's 'payment-vat-note' is only reachable after full-form validation - main agent confirmed manually; acceptable but not automatable without valid PT postal code & scheduling",
+    "Backend automatic_tax + billing_address_collection='required' correctly set for both one-off and subscription flows; tax_code 'txcd_20080007' on line items is appropriate for services"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_stripe_vat.py (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "N/A (public site + Stripe test mode). Stripe test card 4242 4242 4242 4242; use PT billing address to see VAT line.",
+  "seed_data_creation": "None (only initiated Stripe test-mode sessions and one subscriptions document with TEST_ email prefix)",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "VAT feature end-to-end works. If further Stripe checkout page UX verification is needed, use Playwright to visit the returned checkout_url and enter PT billing (country=PT, postal=1000-001, city=Lisboa) to observe VAT (23%) line - main agent already did this manually. PaymentMethodModal requires filling name/email/phone(>=9 digits)/address/date/time/serviceType in cart checkout to open.",
+  "rca of the issue": "No issue found - feature works as designed."
+}

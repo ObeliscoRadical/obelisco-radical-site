@@ -12,6 +12,19 @@ Site de serviços elétricos com:
 
 ## Estado Atual (09/12/2025)
 
+### ATUALIZAÇÃO RECENTE (25/09/2026) - IVA no Stripe
+- [x] **Stripe Tax (IVA automático) ativado** para os 2 fluxos de checkout: compra unica (`/api/stripe/create-checkout-session`, mode=payment) e subscricao Obelisco Care (`/api/stripe/create-subscription-session`, mode=subscription)
+  - `automatic_tax={"enabled": True}` e `billing_address_collection="required"` adicionados a ambas as Checkout Sessions
+  - Precos base continuam SEM IVA (tax_behavior=exclusive); Stripe calcula e acrescenta 23% no checkout
+- [x] **Configuracao fiscal no Stripe (sandbox de teste)**:
+  - `stripe.tax.Settings` com sede em "Praceta Simoes de Almeida Jr 4 Rc Drto, 2745-332 Monte Abraao" e `defaults.tax_behavior=exclusive`
+  - `stripe.tax.Registration` criado para Portugal (type=standard, place_of_supply_scheme=standard) - sem isto o Stripe Tax calculava 0% mesmo com endereco PT
+  - Tax code `txcd_20080007` (Repairs to Real Property) aplicado aos 3 produtos Obelisco Care e aos itens dinamicos do carrinho
+- [x] **Frontend**: etiqueta "+ IVA (23%)" adicionada nos 3 cartoes de planos (Essencial/Preventivo/Total), no modal de subscricao, no resumo do carrinho e no modal de pagamento (cart)
+- [x] **`GET /api/stripe/plans`** agora devolve `vat_included: false` e `vat_rate: 23`
+- [x] **Validado**: sessão Stripe Checkout real testada via Playwright com endereço PT - mostra corretamente "VAT (23%)" e total com IVA somado, para ambos os fluxos (compra unica e subscricao)
+- [x] **Testing agent**: 100% backend e 100% frontend (`/app/test_reports/iteration_11.json`), testes automatizados em `/app/backend/tests/test_stripe_vat.py`
+
 ### ATUALIZAÇÃO RECENTE (13/08/2026)
 - [x] **Google Analytics 4 (GA4) integrado** no frontend com o Measurement ID `G-V24WWQE39G`
 - [x] **Snippet GA4 adicionado ao HTML principal** em `/app/frontend/public/index.html` para permitir deteção pelo Google Search Console
@@ -151,10 +164,10 @@ VAPID_CLAIMS_EMAIL=mailto:obeliscoradical@gmail.com
 ## Próximos Passos
 
 ### P0 - Configuração Produção
-1. **FAZER DEPLOY** para aplicar correção do login de staff
+1. **FAZER DEPLOY** para aplicar correção do login de staff e o novo IVA no Stripe
 2. Obter RESEND_API_KEY real (criar conta em resend.com)
 3. Verificar domínio para emails (evitar spam)
-4. Reclamar conta Stripe para produção
+4. Reclamar conta Stripe para produção (claim do sandbox) - a configuração fiscal (Tax Settings + Registration PT) foi feita no sandbox de teste; confirmar que se mantém após ativação da conta real ou repetir se necessário
 5. Revalidar a propriedade no Google Search Console após novo crawl do site
 
 ### P1 - Segurança e Qualidade
