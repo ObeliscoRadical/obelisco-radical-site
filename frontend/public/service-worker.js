@@ -114,7 +114,7 @@ self.addEventListener('notificationclick', (event) => {
   const url = event.notification.data?.url || '/connect';
   
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       // Try to focus existing window
       for (const client of clientList) {
         if (client.url.includes(url) && 'focus' in client) {
@@ -122,8 +122,8 @@ self.addEventListener('notificationclick', (event) => {
         }
       }
       // Open new window
-      if (clients.openWindow) {
-        return clients.openWindow(url);
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(url);
       }
     })
   );

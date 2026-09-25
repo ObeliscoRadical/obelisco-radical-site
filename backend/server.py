@@ -1650,7 +1650,7 @@ async def create_stripe_checkout_session(request: StripeCheckoutRequest):
         # Convert amount to cents (Stripe uses smallest currency unit)
         amount_cents = int(request.amount * 100)
         
-        # Build line items for Stripe
+        # Build line items for Stripe (prices are VAT-exclusive; Stripe Tax adds IVA on top)
         line_items = []
         for item in request.items:
             line_items.append({
@@ -1658,19 +1658,23 @@ async def create_stripe_checkout_session(request: StripeCheckoutRequest):
                     "currency": request.currency.lower(),
                     "product_data": {
                         "name": item.description,
+                        "tax_code": "txcd_20080007",
                     },
                     "unit_amount": int(item.value / item.quantity * 100),
+                    "tax_behavior": "exclusive",
                 },
                 "quantity": item.quantity,
             })
         
-        # Create Stripe Checkout Session
+        # Create Stripe Checkout Session with automatic IVA (Stripe Tax) calculation
         session = stripe.checkout.Session.create(
             line_items=line_items,
             mode="payment",
             success_url=f"{request.origin_url}?payment_success=true&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{request.origin_url}?payment_cancelled=true",
             customer_email=request.customer.email,
+            automatic_tax={"enabled": True},
+            billing_address_collection="required",
             metadata={
                 "order_id": order_key,
                 "customer_name": request.customer.name,
@@ -1736,13 +1740,15 @@ async def create_subscription_session(request: SubscriptionRequest):
         
         price = prices[0]
         
-        # Create Stripe Checkout Session for subscription
+        # Create Stripe Checkout Session for subscription with automatic IVA (Stripe Tax) calculation
         session = stripe.checkout.Session.create(
             line_items=[{"price": price.id, "quantity": 1}],
             mode="subscription",
             success_url=f"{request.origin_url}?subscription_success=true&session_id={{CHECKOUT_SESSION_ID}}",
             cancel_url=f"{request.origin_url}?subscription_cancelled=true",
             customer_email=request.customer_email,
+            automatic_tax={"enabled": True},
+            billing_address_collection="required",
             metadata={
                 "customer_name": request.customer_name,
                 "customer_phone": request.customer_phone or "",
@@ -1858,7 +1864,7 @@ async def get_subscription_plans():
             "ideal_for": "Ideal para empresas, condominios e operacoes criticas"
         }
     ]
-    return {"plans": plans}
+    return {"plans": plans, "vat_included": False, "vat_rate": 23}
 
 @api_router.get("/stripe/session/{session_id}")
 async def get_stripe_session_status(session_id: str):

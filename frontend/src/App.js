@@ -660,8 +660,11 @@ function PaymentMethodModal({ open, onClose, orderData, onPaymentSuccess }) {
 
         {/* Order Summary */}
         <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-950 p-4">
-          <p className="text-sm text-zinc-400">Total a pagar</p>
+          <p className="text-sm text-zinc-400">Total a pagar (sem IVA)</p>
           <p className="text-2xl font-bold text-yellow-400">EUR{orderData?.value?.toFixed(2)}</p>
+          <p className="mt-1 text-xs text-zinc-500" data-testid="payment-vat-note">
+            + IVA (23%), calculado automaticamente no pagamento seguro pelo Stripe
+          </p>
         </div>
 
         {error && (
@@ -1544,6 +1547,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                       <p className="mt-1 text-sm text-green-400">Poupa 698 EUR (2 meses gratis)</p>
                     </>
                   )}
+                  <p className="mt-1 text-xs text-zinc-500" data-testid="plan-essencial-vat-note">+ IVA (23%)</p>
                 </div>
                 
                 <ul className="mb-8 space-y-3">
@@ -1611,6 +1615,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                       <p className="mt-1 text-sm text-green-400">Poupa 1.398 EUR (2 meses gratis)</p>
                     </>
                   )}
+                  <p className="mt-1 text-xs text-zinc-500" data-testid="plan-preventivo-vat-note">+ IVA (23%)</p>
                 </div>
                 
                 <ul className="mb-8 space-y-3">
@@ -1685,6 +1690,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                       <p className="mt-1 text-sm text-green-400">Poupa 2.580 EUR (2 meses gratis)</p>
                     </>
                   )}
+                  <p className="mt-1 text-xs text-zinc-500" data-testid="plan-total-vat-note">+ IVA (23%)</p>
                 </div>
                 
                 <ul className="mb-8 space-y-3">
@@ -2252,12 +2258,15 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
 
                       <div className="flex items-center justify-between border-t border-zinc-800 pt-3">
                         <span className="text-lg font-semibold text-zinc-300">
-                          Total
+                          Total (sem IVA)
                         </span>
                         <span className="text-2xl font-black text-yellow-300">
                           EUR{total.toFixed(2)}
                         </span>
                       </div>
+                      <p className="text-right text-xs text-zinc-500" data-testid="cart-vat-note">
+                        + IVA (23%), calculado automaticamente no pagamento seguro pelo Stripe
+                      </p>
                     </div>
 
                     <button
@@ -2336,6 +2345,7 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 <div className="text-right">
                   <p className="text-2xl font-bold text-yellow-400">{selectedPlan.price.toLocaleString()}EUR</p>
                   <p className="text-xs text-zinc-400">/{selectedPlan.billing_cycle === "annual" ? "ano" : "mes"}</p>
+                  <p className="text-xs text-zinc-500" data-testid="subscription-vat-note">+ IVA (23%)</p>
                 </div>
               </div>
               {selectedPlan.billing_cycle === "annual" && (
@@ -2446,6 +2456,9 @@ Observacoes: ${customerNotes || "Sem observacoes"}`;
                 )}
               </button>
 
+              <p className="text-center text-xs text-zinc-500">
+                O IVA (23%) e calculado automaticamente e adicionado no pagamento seguro pelo Stripe.
+              </p>
               <p className="text-center text-xs text-zinc-500">
                 Pode cancelar a qualquer momento. Pagamento seguro pelo Stripe.
               </p>
