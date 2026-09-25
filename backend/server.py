@@ -1658,7 +1658,7 @@ async def create_stripe_checkout_session(request: StripeCheckoutRequest):
                     "currency": request.currency.lower(),
                     "product_data": {
                         "name": item.description,
-                        "tax_code": "txcd_20080007",
+                        "tax_code": STRIPE_SERVICE_TAX_CODE,
                     },
                     "unit_amount": int(item.value / item.quantity * 100),
                     "tax_behavior": "exclusive",
@@ -3292,6 +3292,59 @@ async def startup_seed_accounts():
         }
         await db.staff_users.insert_one(technician)
         logger.info(f"Default technician account created: {tech_email}")
+
+    await ensure_stripe_tax_configured()
+
+STRIPE_SERVICE_TAX_CODE = "txcd_20080007"  # Repairs to Real Property (electrical services)
+STRIPE_CARE_PLAN_LOOKUP_KEYS = [
+    "essencial_monthly", "essencial_annual",
+    "preventivo_monthly", "preventivo_annual",
+    "total_monthly", "total_annual",
+]
+
+async def ensure_stripe_tax_configured():
+    """Idempotently configure Stripe Tax (IVA) for whichever mode the current
+    STRIPE_SECRET_KEY belongs to (test or live). Runs on every startup so that
+    a fresh deploy with live keys automatically gets the same tax setup that
+    was configured in test mode."""
+    try:
+        settings = stripe.tax.Settings.retrieve()
+        if not settings.head_office:
+            stripe.tax.Settings.modify(
+                head_office={
+                    "address": {
+                        "country": "PT",
+                        "line1": "Praceta Simoes de Almeida Jr 4 Rc Drto",
+                        "city": "Monte Abraao",
+                        "postal_code": "2745-332",
+                    }
+                },
+                defaults={"tax_behavior": "exclusive", "tax_code": STRIPE_SERVICE_TAX_CODE},
+            )
+            logger.info("Stripe Tax Settings configured (head_office=PT)")
+
+        registrations = stripe.tax.Registration.list(limit=10).data
+        has_pt_registration = any(r.country == "PT" and r.status == "active" for r in registrations)
+        if not has_pt_registration:
+            stripe.tax.Registration.create(
+                country="PT",
+                active_from="now",
+                country_options={"pt": {"type": "standard", "standard": {"place_of_supply_scheme": "standard"}}},
+            )
+            logger.info("Stripe Tax Registration created for PT")
+
+        product_ids = set()
+        for lookup_key in STRIPE_CARE_PLAN_LOOKUP_KEYS:
+            prices = stripe.Price.list(lookup_keys=[lookup_key], active=True, limit=1).data
+            if prices:
+                product_ids.add(prices[0].product)
+        for product_id in product_ids:
+            product = stripe.Product.retrieve(product_id)
+            if not product.tax_code:
+                stripe.Product.modify(product_id, tax_code=STRIPE_SERVICE_TAX_CODE)
+                logger.info(f"Stripe Product {product_id} tax_code set to {STRIPE_SERVICE_TAX_CODE}")
+    except Exception as e:
+        logger.error(f"Stripe Tax auto-configuration failed (non-fatal): {str(e)}")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
