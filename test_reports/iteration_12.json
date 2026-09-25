@@ -1,0 +1,20 @@
+{
+  "summary": "Verified backend fix that moved Stripe Tax config into an idempotent startup function ensure_stripe_tax_configured(). Backend restarts cleanly, Stripe Tax stays correctly configured, no duplicate PT registrations are created on repeated restarts, all VAT regression tests pass, and frontend still renders + IVA (23%) labels.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_stripe_vat.py", "/app/test_reports/pytest/vat_iter12.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ensure_stripe_tax_configured() runs 12+ Stripe API calls on every backend startup (~1s latency). Consider caching a 'tax_configured' flag in Mongo to skip on subsequent boots, or gating with an env flag, especially since supervisor + hot-reload restarts backend frequently.",
+    "The function is wrapped in try/except (good, non-blocking) but errors are only logged - consider surfacing to a health/status endpoint so ops can detect a mis-configured environment quickly.",
+    "server.py is very large (>3300 lines). Startup seed + Stripe tax config would benefit from extraction into backend/services/stripe_tax.py for maintainability."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Stripe test card 4242 4242 4242 4242 (not exercised in this iteration - Stripe-hosted checkout page VAT display was already verified in iteration_11)",
+  "seed_data_creation": "None. Verified via Stripe API that exactly 1 active PT tax registration exists (taxreg_1UJSv8ERmwXcLQe4y3AisYnT, type=standard) after multiple backend restarts, and Tax Settings head_office=PT with default tax_code=txcd_20080007.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iteration_11 already verified end-to-end VAT calc on Stripe-hosted checkout in test mode. This iteration_12 only re-verified the startup idempotency of the new ensure_stripe_tax_configured() function and ran the 5 test_stripe_vat.py regression tests (all pass). LIVE mode fix cannot be validated here (no live Stripe key in preview env) - user must redeploy production and confirm.",
+  "rca of the issue": "Root cause (already known and fixed by main agent): Stripe Test mode and Live mode are separate data namespaces on the same connected account. The prior one-off configuration script (setting Tax Settings head_office, PT Tax Registration, and Product tax_codes) was only executed against the TEST key, so LIVE checkout sessions had no tax registration and Stripe returned Imposto=0. Fix: idempotent ensure_stripe_tax_configured() invoked from @app.on_event('startup') so whichever STRIPE_SECRET_KEY (test or live) is active gets configured on every deploy. Verified: repeated restarts do not create duplicate PT registrations (still exactly 1 active), no startup crash, no error logs, all Stripe calls return 200."
+}

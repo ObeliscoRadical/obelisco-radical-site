@@ -12,7 +12,14 @@ Site de serviços elétricos com:
 
 ## Estado Atual (09/12/2025)
 
-### ATUALIZAÇÃO RECENTE (25/09/2026) - IVA no Stripe
+### CORREÇÃO CRÍTICA (25/09/2026) - IVA não aparecia em Produção (Live mode)
+- [x] **Bug reportado pelo utilizador**: no site já publicado, o checkout Stripe mostrava "Imposto: €0,00" mesmo com morada de Portugal preenchida
+- [x] **Causa raiz identificada**: a configuração fiscal do Stripe (Tax Settings + Tax Registration PT + tax_code dos produtos) tinha sido feita apenas no modo de TESTE da conta Stripe via script manual. O modo LIVE é um ambiente de dados separado na mesma conta e nunca recebeu essa configuração
+- [x] **Correção aplicada**: a configuração fiscal foi movida para uma função idempotente `ensure_stripe_tax_configured()`, chamada automaticamente no arranque do backend (`@app.on_event("startup")`). Esta função corre contra a chave Stripe atualmente ativa (teste ou live) e configura Tax Settings/Registration/tax_code apenas se ainda não existirem
+- [x] **Testado**: reinícios repetidos do backend não criam registos de IVA duplicados; fluxo de teste continua a funcionar corretamente (100% backend/frontend em `/app/test_reports/iteration_12.json`)
+- [ ] **AÇÃO NECESSÁRIA DO UTILIZADOR**: fazer um novo deploy/publicação para que esta correção seja executada também no ambiente de produção (chave live) e o IVA passe a ser calculado corretamente no checkout real
+
+
 - [x] **Stripe Tax (IVA automático) ativado** para os 2 fluxos de checkout: compra unica (`/api/stripe/create-checkout-session`, mode=payment) e subscricao Obelisco Care (`/api/stripe/create-subscription-session`, mode=subscription)
   - `automatic_tax={"enabled": True}` e `billing_address_collection="required"` adicionados a ambas as Checkout Sessions
   - Precos base continuam SEM IVA (tax_behavior=exclusive); Stripe calcula e acrescenta 23% no checkout
