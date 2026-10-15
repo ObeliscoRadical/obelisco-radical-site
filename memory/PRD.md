@@ -12,6 +12,15 @@ Site de serviços elétricos com:
 
 ## Estado Atual (09/12/2025)
 
+### NOVA FUNCIONALIDADE (15/10/2026) - Clientes Manuais (Fatura) no Connect
+- [x] **Pedido do utilizador**: admin precisa de uma area para inserir clientes que pagam o plano Obelisco Care por fatura emitida pelo proprio admin (fora do Stripe), com password inicial que o cliente pode alterar depois
+- [x] **Backend**: novos endpoints `POST /api/connect/admin/customers` (admin cria cliente, escolhe plano+ciclo, password inicial gerada automaticamente e devolvida uma unica vez) e `POST /api/connect/customer/change-password` (cliente logado muda a propria password)
+- [x] **Hashing**: passwords de clientes usam bcrypt (`hash_customer_password`/`verify_customer_password`), distinto do sha256 usado para staff (nao alterado)
+- [x] **Login de cliente**: `POST /api/connect/login/customer` agora aceita password opcional - se a subscricao tiver `password_hash` definido (clientes manuais), a password e obrigatoria; clientes antigos pagos via Stripe continuam a entrar so com o email (sem quebra de compatibilidade)
+- [x] **Seguranca**: `password_hash` excluido de todas as respostas JSON que devolvem subscricoes (admin list, customer dashboard, customer subscriptions, relatorios)
+- [x] **Frontend**: botao "Adicionar Cliente" na tab Subscricoes do Admin Dashboard, modal de criacao (nome/email/telefone/plano/ciclo), modal de credenciais geradas (copiar dados), badge "Fatura Manual" vs "Stripe" na tabela; campo de password opcional no login de cliente; seccao "Mudar Password" na tab Conta do Client Dashboard
+- [x] **Testado**: 100% backend (15/15 testes, `/app/backend/tests/test_manual_customer.py`) e 100% frontend (`/app/test_reports/iteration_13.json`), incluindo regressao do login legado so-por-email
+
 ### CORREÇÃO CRÍTICA (25/09/2026) - IVA não aparecia em Produção (Live mode)
 - [x] **Bug reportado pelo utilizador**: no site já publicado, o checkout Stripe mostrava "Imposto: €0,00" mesmo com morada de Portugal preenchida
 - [x] **Causa raiz identificada**: a configuração fiscal do Stripe (Tax Settings + Tax Registration PT + tax_code dos produtos) tinha sido feita apenas no modo de TESTE da conta Stripe via script manual. O modo LIVE é um ambiente de dados separado na mesma conta e nunca recebeu essa configuração

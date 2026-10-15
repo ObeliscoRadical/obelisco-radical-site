@@ -1,0 +1,25 @@
+{
+  "summary": "Full backend + frontend verification of the new 'manual customer' admin feature in Obelisco Connect. Backend pytest suite (15/15 pass) covers: admin creating a customer (all 3 plans + both billing cycles, correct hours mapping 3/6/12), duplicate active-email guard (400 'ativa'), admin subscriptions list does NOT leak password_hash, customer login variants (success, wrong password 401 'incorreta', missing password 401), customer dashboard does NOT leak password_hash, change-password flow (wrong current 401, too-short 400, success + old-password fails + new works), and regression: legacy email-only login for Stripe-paid customers still returns 200. Playwright UI flow executed end-to-end on the preview URL: admin login -> Subscricoes -> 'Adicionar Cliente' modal fills correctly with select dropdowns -> credentials modal shows generated email+password + Copiar Dados + Concluir, 'Fatura Manual' badges render in the subscriptions table, duplicate-email submission produces an error, customer login with the generated password works, Mudar Password section expands, shows client-side 'As passwords novas nao coincidem' validation, server-side 'Password atual incorreta', and green 'Password alterada com sucesso' on valid change. No security leaks found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_manual_customer.py",
+    "/app/test_reports/pytest/manual_customer_iter13.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now >3400 lines and keeps growing with every feature; the new manual-customer and change-password endpoints would be a good moment to extract /connect/* customer auth into a backend/routers/connect_customer.py module.",
+    "generate_initial_password() uses a 10-char alphanumeric alphabet without guaranteed character-class variety (could legally produce all-digits). For admin-shared creds this is acceptable, but consider enforcing at least one letter+digit to avoid accidentally weak outputs.",
+    "POST /api/connect/admin/customers never returns the full subscription object - only id/email/password. Response is fine, but admin UI currently has to re-fetch the whole list to show the new row; could return the created subscription directly to reduce latency.",
+    "Change-password endpoint: ordering is current-password check (401) BEFORE new-password length check (400). If an attacker submits a too-short new password with a wrong current password, they first learn the current is wrong - this is actually desirable, keep as is. (No action needed, just noted.)",
+    "ConnectLogin.js uses data-testid 'connect-email-input' for the shared email input (both customer and staff tabs), while the testing spec referenced 'connect-customer-email-input'. The current testid works, but naming inconsistency with the spec may confuse future test authors - consider aliasing or renaming when the tab is 'customer'."
+  ],
+  "updated_files": ["/app/backend/tests/test_manual_customer.py"],
+  "success_rate": {"backend": "100% (15/15)", "frontend": "100% (admin create + badge + customer login + change-password mismatch/wrong/success all verified)"},
+  "test_credentials": "Admin admin@obelisco.pt / admin123. Legacy email-only customer teste.obelisco@gmail.com (no password). Dynamic test customers created with prefix test_manual_*/test_plan_*/ui_full_* and password returned once in create response.",
+  "seed_data_creation": "Created several TEST_ prefixed manual customers in db.subscriptions during this run (test_manual_*, test_plan_essencial_*, test_plan_preventivo_*, test_plan_total_*, ui_full_1792099158). They remain active - cleanup not performed because there is no admin delete endpoint. Safe to leave; they are clearly prefixed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "iteration_13 fully validated the manual-customer admin feature end-to-end (backend + UI). Reusable pytest file at /app/backend/tests/test_manual_customer.py is a good regression suite for any future auth-related changes to /api/connect/login/customer, /api/connect/admin/customers, /api/connect/customer/change-password. Legacy email-only customer login is confirmed intact. ConnectLogin.js shared email testid is 'connect-email-input' (not 'connect-customer-email-input' as the spec suggested); use that one.",
+  "rca of the issue": "N/A - no bugs found this iteration."
+}

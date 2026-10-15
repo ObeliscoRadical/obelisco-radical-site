@@ -18,6 +18,11 @@
 - **Password:** tech123
 - **Role:** TECHNICIAN
 
+### Cliente Manual (Fatura, criado via Admin)
+- **Email:** cliente.fatura.teste@example.com
+- **Password:** novaPass123 (alterada durante teste; admin pode criar novos clientes manuais a qualquer momento via Connect Admin > Subscricoes > Adicionar Cliente, a password inicial e gerada automaticamente e mostrada uma unica vez)
+- **Plano:** Preventivo
+
 ## Como Testar
 
 ### Login Cliente
