@@ -57,7 +57,7 @@ export function ConnectLogin({ onLogin }) {
         : '/api/connect/login/staff';
 
       const body = loginType === 'customer'
-        ? { email }
+        ? { email, password: password || undefined }
         : { email, password };
 
       const response = await fetch(`${BACKEND_URL}${endpoint}`, {
@@ -159,7 +159,7 @@ export function ConnectLogin({ onLogin }) {
             )}
           </div>
 
-          {/* Password (only for staff) */}
+          {/* Password (staff always, customer only if they have one) */}
           {loginType === 'staff' && (
             <div>
               <label className="block text-sm font-medium text-zinc-300 mb-1.5">
@@ -175,6 +175,32 @@ export function ConnectLogin({ onLogin }) {
                   placeholder="••••••••"
                   className="w-full pl-10 pr-12 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
                   data-testid="connect-password-input"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {loginType === 'customer' && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-1.5">
+                Password <span className="text-zinc-500 font-normal">(se lhe foi fornecida uma)</span>
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Deixe em branco se nao tiver password"
+                  className="w-full pl-10 pr-12 py-3 bg-zinc-900 border border-zinc-800 rounded-xl text-white placeholder-zinc-500 focus:border-yellow-400 focus:outline-none"
+                  data-testid="connect-customer-password-input"
                 />
                 <button
                   type="button"

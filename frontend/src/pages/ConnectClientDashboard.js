@@ -29,6 +29,10 @@ const ConnectClientDashboard = () => {
     address: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
+  const [passwordSubmitting, setPasswordSubmitting] = useState(false);
 
   const token = localStorage.getItem('connect_token');
 
@@ -109,6 +113,45 @@ const ConnectClientDashboard = () => {
     localStorage.removeItem('connect_token');
     localStorage.removeItem('connect_user');
     navigate('/connect');
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    setPasswordMsg({ type: '', text: '' });
+
+    if (passwordForm.new_password !== passwordForm.confirm_password) {
+      setPasswordMsg({ type: 'error', text: 'As passwords novas nao coincidem' });
+      return;
+    }
+    if (passwordForm.new_password.length < 6) {
+      setPasswordMsg({ type: 'error', text: 'A nova password deve ter pelo menos 6 caracteres' });
+      return;
+    }
+
+    setPasswordSubmitting(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/connect/customer/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_password: passwordForm.current_password,
+          new_password: passwordForm.new_password
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Erro ao mudar password');
+      }
+      setPasswordMsg({ type: 'success', text: 'Password alterada com sucesso' });
+      setPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+    } catch (err) {
+      setPasswordMsg({ type: 'error', text: err.message });
+    } finally {
+      setPasswordSubmitting(false);
+    }
   };
 
   const handleSubmitRequest = async (e) => {
@@ -472,6 +515,75 @@ const ConnectClientDashboard = () => {
                   <p className="text-white">{user?.email || '-'}</p>
                 </div>
               </div>
+            </div>
+
+            {/* Security / Change Password Section */}
+            <div className="bg-zinc-900 border border-zinc-800 p-6">
+              <button
+                type="button"
+                onClick={() => setShowChangePassword(!showChangePassword)}
+                className="w-full flex items-center justify-between"
+                data-testid="toggle-change-password"
+              >
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Settings className="w-5 h-5 text-[#FFD700]" />
+                  Mudar Password
+                </h3>
+                <ChevronRight className={`w-5 h-5 text-zinc-500 transition-transform ${showChangePassword ? 'rotate-90' : ''}`} />
+              </button>
+              {showChangePassword && (
+                <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+                  <div>
+                    <label className="block text-xs text-zinc-500 uppercase mb-2">Password Atual *</label>
+                    <input
+                      type="password"
+                      value={passwordForm.current_password}
+                      onChange={e => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                      required
+                      data-testid="current-password-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 uppercase mb-2">Nova Password *</label>
+                    <input
+                      type="password"
+                      value={passwordForm.new_password}
+                      onChange={e => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                      required
+                      minLength={6}
+                      data-testid="new-password-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-500 uppercase mb-2">Confirmar Nova Password *</label>
+                    <input
+                      type="password"
+                      value={passwordForm.confirm_password}
+                      onChange={e => setPasswordForm({ ...passwordForm, confirm_password: e.target.value })}
+                      className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                      required
+                      minLength={6}
+                      data-testid="confirm-password-input"
+                    />
+                  </div>
+                  {passwordMsg.text && (
+                    <p className={`text-sm ${passwordMsg.type === 'error' ? 'text-red-400' : 'text-green-400'}`} data-testid="change-password-message">
+                      {passwordMsg.text}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={passwordSubmitting}
+                    className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                    data-testid="submit-change-password"
+                  >
+                    {passwordSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                    Guardar Nova Password
+                  </button>
+                </form>
+              )}
             </div>
 
             {/* Reports Section */}

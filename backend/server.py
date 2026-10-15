@@ -8,8 +8,10 @@ import logging
 import asyncio
 import hashlib
 import secrets
+import string
 import io
 import base64
+import bcrypt
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import Any, List, Literal, Optional
@@ -287,10 +289,18 @@ PLAN_HOURS = {
     "total": 12
 }
 
+# Plan pricing mapping (EUR, sem IVA) - mirrors /api/stripe/plans
+PLAN_PRICING = {
+    "essencial": {"monthly": 349, "annual": 3490},
+    "preventivo": {"monthly": 699, "annual": 6990},
+    "total": {"monthly": 1290, "annual": 12900},
+}
+
 # ==================== CONNECT AUTH MODELS ====================
 
 class CustomerLoginRequest(BaseModel):
     email: str
+    password: Optional[str] = None
 
 class StaffLoginRequest(BaseModel):
     email: str
@@ -302,6 +312,17 @@ class CreateTechnicianRequest(BaseModel):
     password: str
     phone: Optional[str] = None
     specialties: Optional[List[str]] = None
+
+class CreateManualCustomerRequest(BaseModel):
+    name: str
+    email: str
+    phone: Optional[str] = None
+    plan_id: Literal["essencial", "preventivo", "total"]
+    billing_cycle: Literal["monthly", "annual"]
+
+class ChangeCustomerPasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 class SiteInboundRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -349,6 +370,22 @@ def verify_password(password: str, password_hash: str) -> bool:
     """Verify password against hash"""
     return hash_password(password) == password_hash
 
+def hash_customer_password(password: str) -> str:
+    """Bcrypt hashing for customer-facing passwords (manually created accounts)"""
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+def verify_customer_password(password: str, password_hash: str) -> bool:
+    """Verify a customer password against its bcrypt hash"""
+    try:
+        return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
+    except Exception:
+        return False
+
+def generate_initial_password(length: int = 10) -> str:
+    """Generate a secure random initial password for admin-created customers"""
+    alphabet = string.ascii_uppercase + string.ascii_lowercase + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
 def generate_token() -> str:
     """Generate a simple session token"""
     return secrets.token_urlsafe(32)
@@ -359,7 +396,10 @@ def generate_token() -> str:
 
 @api_router.post("/connect/login/customer")
 async def connect_login_customer(request: CustomerLoginRequest):
-    """Login for customers - checks if they have an active subscription"""
+    """Login for customers - checks if they have an active subscription.
+    If the subscription has a password_hash set (manually created / invoice
+    customers), the password must match. Legacy Stripe-paid customers with
+    no password_hash keep the original email-only login."""
     email = request.email.lower().strip()
     
     # Find active subscription for this email
@@ -370,6 +410,10 @@ async def connect_login_customer(request: CustomerLoginRequest):
     
     if not subscription:
         raise HTTPException(status_code=404, detail="Nenhuma subscricao ativa encontrada para este email")
+    
+    if subscription.get("password_hash"):
+        if not request.password or not verify_customer_password(request.password, subscription["password_hash"]):
+            raise HTTPException(status_code=401, detail="Password incorreta")
     
     # Generate session token
     token = generate_token()
@@ -977,9 +1021,93 @@ async def admin_list_subscriptions(request: Request, status: Optional[str] = Non
     if status:
         query["status"] = status
     
-    subscriptions = await db.subscriptions.find(query, {"_id": 0}).sort("created_at", -1).to_list(200)
+    subscriptions = await db.subscriptions.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(200)
     
     return {"subscriptions": subscriptions, "count": len(subscriptions)}
+
+@api_router.post("/connect/admin/customers")
+async def create_manual_customer(data: CreateManualCustomerRequest, request: Request):
+    """Admin manually creates a customer account (invoice-based payment, outside Stripe).
+    Generates a secure initial password returned once in the response for the
+    admin to share with the client; the client can change it afterwards."""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+
+    email = data.email.lower().strip()
+
+    existing = await db.subscriptions.find_one({"customer_email": email, "status": "active"})
+    if existing:
+        raise HTTPException(status_code=400, detail="Ja existe uma subscricao ativa para este email")
+
+    initial_password = generate_initial_password()
+    hours = PLAN_HOURS.get(data.plan_id, 3)
+    amount = PLAN_PRICING.get(data.plan_id, {}).get(data.billing_cycle, 0)
+    period_start = datetime.now(timezone.utc)
+    period_end = period_start + timedelta(days=30 if data.billing_cycle == "monthly" else 365)
+
+    sub_record = {
+        "id": str(uuid.uuid4()),
+        "stripe_subscription_id": None,
+        "stripe_customer_id": None,
+        "customer_email": email,
+        "customer_name": data.name,
+        "customer_phone": data.phone,
+        "plan_id": data.plan_id,
+        "plan_name": data.plan_id.capitalize(),
+        "billing_cycle": data.billing_cycle,
+        "amount": amount,
+        "currency": "EUR",
+        "status": "active",
+        "payment_method": "manual_invoice",
+        "hours_included": hours,
+        "hours_used": 0.0,
+        "current_period_start": period_start.isoformat(),
+        "current_period_end": period_end.isoformat(),
+        "password_hash": hash_customer_password(initial_password),
+        "created_by_admin_id": session.get("staff_id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    await db.subscriptions.insert_one(sub_record)
+    logger.info(f"Manual customer created by admin: {email} (plan={data.plan_id})")
+
+    return {
+        "success": True,
+        "subscription_id": sub_record["id"],
+        "customer_email": email,
+        "initial_password": initial_password,
+    }
+
+@api_router.post("/connect/customer/change-password")
+async def change_customer_password(data: ChangeCustomerPasswordRequest, request: Request):
+    """Logged-in customer changes their own password"""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") != "CUSTOMER":
+        raise HTTPException(status_code=403, detail="Apenas clientes")
+
+    subscription = await db.subscriptions.find_one({"customer_email": session.get("user_email"), "status": "active"})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+
+    if not subscription.get("password_hash"):
+        raise HTTPException(status_code=400, detail="Esta conta ainda nao tem password definida. Contacte o suporte.")
+
+    if not verify_customer_password(data.current_password, subscription["password_hash"]):
+        raise HTTPException(status_code=401, detail="Password atual incorreta")
+
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="A nova password deve ter pelo menos 6 caracteres")
+
+    await db.subscriptions.update_one(
+        {"id": subscription["id"]},
+        {"$set": {"password_hash": hash_customer_password(data.new_password), "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    return {"success": True, "message": "Password alterada com sucesso"}
 
 @api_router.post("/connect/admin/hours-adjustment")
 async def admin_adjust_hours(data: HoursAdjustmentCreate, request: Request):
@@ -1205,7 +1333,7 @@ async def customer_dashboard(request: Request):
     # Get subscription
     subscription = await db.subscriptions.find_one(
         {"customer_email": email, "status": "active"},
-        {"_id": 0}
+        {"_id": 0, "password_hash": 0}
     )
     
     if not subscription:
@@ -2114,7 +2242,7 @@ async def get_customer_subscriptions(email: str):
     """Get all subscriptions for a customer by email"""
     subscriptions = await db.subscriptions.find(
         {"customer_email": email, "status": {"$in": ["active", "past_due", "trialing"]}},
-        {"_id": 0}
+        {"_id": 0, "password_hash": 0}
     ).to_list(100)
     
     return {"subscriptions": subscriptions}
@@ -2124,7 +2252,7 @@ async def get_subscription_details(subscription_id: str):
     """Get detailed subscription info including hours used/available"""
     sub = await db.subscriptions.find_one(
         {"$or": [{"id": subscription_id}, {"stripe_subscription_id": subscription_id}]},
-        {"_id": 0}
+        {"_id": 0, "password_hash": 0}
     )
     
     if not sub:
@@ -3202,7 +3330,7 @@ async def generate_monthly_report(subscription_id: str, month: int = None, year:
 async def get_subscription_summary(subscription_id: str, request: Request):
     """Get subscription summary with all work logs and adjustments"""
     
-    subscription = await db.subscriptions.find_one({"id": subscription_id}, {"_id": 0})
+    subscription = await db.subscriptions.find_one({"id": subscription_id}, {"_id": 0, "password_hash": 0})
     if not subscription:
         raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
     

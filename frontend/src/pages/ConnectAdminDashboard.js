@@ -32,11 +32,14 @@ const ConnectAdminDashboard = () => {
   
   // Modals
   const [showNewTech, setShowNewTech] = useState(false);
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [newClientCredentials, setNewClientCredentials] = useState(null);
   const [showAssign, setShowAssign] = useState(null);
   const [showAdjust, setShowAdjust] = useState(null);
   
   // Forms
   const [techForm, setTechForm] = useState({ name: '', email: '', password: '' });
+  const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly' });
   const [adjustForm, setAdjustForm] = useState({ hours: 0, reason: '' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -151,6 +154,41 @@ const ConnectAdminDashboard = () => {
 
       setShowNewTech(false);
       setTechForm({ name: '', email: '', password: '' });
+      fetchAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateClient = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/connect/admin/customers`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(clientForm)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Erro ao criar cliente');
+      }
+
+      setShowNewClient(false);
+      setNewClientCredentials({
+        email: data.customer_email,
+        password: data.initial_password
+      });
+      setClientForm({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly' });
       fetchAll();
     } catch (err) {
       setError(err.message);
@@ -722,9 +760,19 @@ const ConnectAdminDashboard = () => {
           <div className="bg-zinc-900 border border-zinc-800">
             <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
               <h3 className="font-bold text-white">Todas as Subscricoes ({subscriptions.length})</h3>
-              <button onClick={fetchAll} className="text-zinc-400 hover:text-white">
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowNewClient(true)}
+                  className="flex items-center gap-2 bg-[#FFD700] text-black font-bold text-sm px-4 py-2 hover:bg-yellow-300 transition-colors"
+                  data-testid="new-client-btn"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Adicionar Cliente
+                </button>
+                <button onClick={fetchAll} className="text-zinc-400 hover:text-white">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             {subscriptions.length === 0 ? (
               <p className="text-zinc-500 text-center py-12">Nenhuma subscricao registada</p>
@@ -735,6 +783,7 @@ const ConnectAdminDashboard = () => {
                     <tr className="border-b border-zinc-800">
                       <th className="text-left py-3 px-4 text-zinc-500 text-xs uppercase">Cliente</th>
                       <th className="text-left py-3 px-4 text-zinc-500 text-xs uppercase">Plano</th>
+                      <th className="text-left py-3 px-4 text-zinc-500 text-xs uppercase">Pagamento</th>
                       <th className="text-left py-3 px-4 text-zinc-500 text-xs uppercase">Horas Incl.</th>
                       <th className="text-left py-3 px-4 text-zinc-500 text-xs uppercase">Usadas</th>
                       <th className="text-left py-3 px-4 text-zinc-500 text-xs uppercase">Disponiveis</th>
@@ -751,6 +800,15 @@ const ConnectAdminDashboard = () => {
                         </td>
                         <td className="py-3 px-4">
                           <span className="text-[#FFD700] font-bold">{sub.plan_name}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {sub.payment_method === 'manual_invoice' ? (
+                            <span className="text-xs font-semibold bg-blue-500/20 text-blue-300 px-2 py-1" data-testid={`manual-badge-${sub.id}`}>
+                              Fatura Manual
+                            </span>
+                          ) : (
+                            <span className="text-xs font-semibold bg-zinc-800 text-zinc-400 px-2 py-1">Stripe</span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-white">{sub.hours_included}h</td>
                         <td className="py-3 px-4 text-zinc-400">{sub.hours_used?.toFixed(1) || 0}h</td>
@@ -869,6 +927,132 @@ const ConnectAdminDashboard = () => {
                 Criar Tecnico
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Manual Client Modal */}
+      {showNewClient && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowNewClient(false)}>
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Adicionar Cliente (Fatura Manual)</h3>
+              <button onClick={() => setShowNewClient(false)} className="text-zinc-400"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleCreateClient} className="p-4 space-y-4">
+              <p className="text-xs text-zinc-500">
+                Use isto para clientes que pagam a subscricao por fatura emitida por si (fora do Stripe). Sera gerada uma password inicial que o cliente pode alterar depois.
+              </p>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Nome *</label>
+                <input
+                  type="text"
+                  value={clientForm.name}
+                  onChange={e => setClientForm({...clientForm, name: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="client-name"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Email *</label>
+                <input
+                  type="email"
+                  value={clientForm.email}
+                  onChange={e => setClientForm({...clientForm, email: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="client-email"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Telefone</label>
+                <input
+                  type="tel"
+                  value={clientForm.phone}
+                  onChange={e => setClientForm({...clientForm, phone: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="client-phone"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Plano Obelisco Care *</label>
+                <select
+                  value={clientForm.plan_id}
+                  onChange={e => setClientForm({...clientForm, plan_id: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="client-plan"
+                >
+                  <option value="essencial">Essencial (3h/mes - 349 EUR)</option>
+                  <option value="preventivo">Preventivo (6h/mes - 699 EUR)</option>
+                  <option value="total">Total (12h/mes - 1290 EUR)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Ciclo de Faturacao *</label>
+                <select
+                  value={clientForm.billing_cycle}
+                  onChange={e => setClientForm({...clientForm, billing_cycle: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="client-billing-cycle"
+                >
+                  <option value="monthly">Mensal</option>
+                  <option value="annual">Anual</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                data-testid="submit-client"
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <UserPlus className="w-5 h-5" />}
+                Criar Cliente
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Generated Credentials Result Modal */}
+      {newClientCredentials && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setNewClientCredentials(null)}>
+          <div className="bg-zinc-900 border border-[#FFD700]/40 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Cliente Criado com Sucesso</h3>
+              <button onClick={() => setNewClientCredentials(null)} className="text-zinc-400"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-4">
+              <p className="text-sm text-zinc-400">
+                Copie e envie estes dados ao cliente. Esta password <strong className="text-white">so e mostrada agora</strong> - nao fica visivel depois.
+              </p>
+              <div className="bg-zinc-800 p-3">
+                <p className="text-xs text-zinc-500 uppercase">Email</p>
+                <p className="text-white font-mono" data-testid="generated-client-email">{newClientCredentials.email}</p>
+              </div>
+              <div className="bg-zinc-800 p-3">
+                <p className="text-xs text-zinc-500 uppercase">Password Inicial</p>
+                <p className="text-[#FFD700] font-mono text-lg" data-testid="generated-client-password">{newClientCredentials.password}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`Email: ${newClientCredentials.email}\nPassword: ${newClientCredentials.password}`);
+                }}
+                className="w-full bg-zinc-800 border border-zinc-700 text-white font-semibold py-3 hover:border-[#FFD700] transition-colors"
+                data-testid="copy-client-credentials"
+              >
+                Copiar Dados
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewClientCredentials(null)}
+                className="w-full bg-[#FFD700] text-black font-bold py-3"
+                data-testid="close-credentials-modal"
+              >
+                Concluir
+              </button>
+            </div>
           </div>
         </div>
       )}
