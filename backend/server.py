@@ -324,6 +324,14 @@ class ChangeCustomerPasswordRequest(BaseModel):
     current_password: str
     new_password: str
 
+class EditManualCustomerRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    plan_id: Optional[Literal["essencial", "preventivo", "total"]] = None
+    billing_cycle: Optional[Literal["monthly", "annual"]] = None
+    subscription_start_date: Optional[str] = None  # ISO date string, e.g. "2025-06-01"
+
 class SiteInboundRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -1080,6 +1088,70 @@ async def create_manual_customer(data: CreateManualCustomerRequest, request: Req
         "customer_email": email,
         "initial_password": initial_password,
     }
+
+@api_router.put("/connect/admin/customers/{subscription_id}")
+async def edit_manual_customer(subscription_id: str, data: EditManualCustomerRequest, request: Request):
+    """Admin edits a manually-created customer's data, including backdating the
+    subscription start date (e.g. the client has actually been a customer for a
+    while but is only now being registered in the system). Only applies to
+    manual_invoice subscriptions - Stripe-paid ones are kept in sync by Stripe
+    itself and should not be edited here."""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+
+    subscription = await db.subscriptions.find_one({"id": subscription_id})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+
+    if subscription.get("payment_method") != "manual_invoice":
+        raise HTTPException(status_code=400, detail="Apenas clientes de fatura manual podem ser editados aqui. Subscricoes Stripe sao geridas automaticamente pelo Stripe.")
+
+    update_fields = {}
+
+    if data.name is not None:
+        update_fields["customer_name"] = data.name
+    if data.phone is not None:
+        update_fields["customer_phone"] = data.phone
+    if data.email is not None:
+        new_email = data.email.lower().strip()
+        if new_email != subscription["customer_email"]:
+            existing = await db.subscriptions.find_one({"customer_email": new_email, "status": "active"})
+            if existing:
+                raise HTTPException(status_code=400, detail="Ja existe uma subscricao ativa com este email")
+            update_fields["customer_email"] = new_email
+
+    plan_id = data.plan_id or subscription["plan_id"]
+    billing_cycle = data.billing_cycle or subscription["billing_cycle"]
+    if data.plan_id is not None:
+        update_fields["plan_id"] = plan_id
+        update_fields["plan_name"] = plan_id.capitalize()
+        update_fields["hours_included"] = PLAN_HOURS.get(plan_id, 3)
+    if data.billing_cycle is not None:
+        update_fields["billing_cycle"] = billing_cycle
+    if data.plan_id is not None or data.billing_cycle is not None:
+        update_fields["amount"] = PLAN_PRICING.get(plan_id, {}).get(billing_cycle, 0)
+
+    if data.subscription_start_date is not None:
+        try:
+            period_start = datetime.fromisoformat(data.subscription_start_date).replace(tzinfo=timezone.utc)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Data invalida. Use o formato AAAA-MM-DD")
+        period_end = period_start + timedelta(days=30 if billing_cycle == "monthly" else 365)
+        update_fields["current_period_start"] = period_start.isoformat()
+        update_fields["current_period_end"] = period_end.isoformat()
+
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
+
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+    await db.subscriptions.update_one({"id": subscription_id}, {"$set": update_fields})
+    logger.info(f"Manual customer {subscription_id} edited by admin {session.get('staff_id')}: {list(update_fields.keys())}")
+
+    updated = await db.subscriptions.find_one({"id": subscription_id}, {"_id": 0, "password_hash": 0})
+    return {"success": True, "subscription": updated}
 
 @api_router.post("/connect/customer/change-password")
 async def change_customer_password(data: ChangeCustomerPasswordRequest, request: Request):

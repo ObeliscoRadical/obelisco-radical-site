@@ -34,12 +34,14 @@ const ConnectAdminDashboard = () => {
   const [showNewTech, setShowNewTech] = useState(false);
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientCredentials, setNewClientCredentials] = useState(null);
+  const [showEditClient, setShowEditClient] = useState(null);
   const [showAssign, setShowAssign] = useState(null);
   const [showAdjust, setShowAdjust] = useState(null);
   
   // Forms
   const [techForm, setTechForm] = useState({ name: '', email: '', password: '' });
   const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly' });
+  const [editClientForm, setEditClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly', subscription_start_date: '' });
   const [adjustForm, setAdjustForm] = useState({ hours: 0, reason: '' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -189,6 +191,48 @@ const ConnectAdminDashboard = () => {
         password: data.initial_password
       });
       setClientForm({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly' });
+      fetchAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditClient = (sub) => {
+    setEditClientForm({
+      name: sub.customer_name || '',
+      email: sub.customer_email || '',
+      phone: sub.customer_phone || '',
+      plan_id: sub.plan_id || 'essencial',
+      billing_cycle: sub.billing_cycle || 'monthly',
+      subscription_start_date: sub.current_period_start ? sub.current_period_start.slice(0, 10) : ''
+    });
+    setShowEditClient(sub);
+  };
+
+  const handleEditClient = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/connect/admin/customers/${showEditClient.id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(editClientForm)
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Erro ao editar cliente');
+      }
+
+      setShowEditClient(null);
       fetchAll();
     } catch (err) {
       setError(err.message);
@@ -828,6 +872,15 @@ const ConnectAdminDashboard = () => {
                           >
                             Ajustar Horas
                           </button>
+                          {sub.payment_method === 'manual_invoice' && (
+                            <button
+                              onClick={() => openEditClient(sub)}
+                              className="text-blue-400 text-sm hover:underline ml-3"
+                              data-testid={`edit-client-btn-${sub.id}`}
+                            >
+                              Editar
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1053,6 +1106,101 @@ const ConnectAdminDashboard = () => {
                 Concluir
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Manual Client Modal */}
+      {showEditClient && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowEditClient(null)}>
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Editar Cliente</h3>
+              <button onClick={() => setShowEditClient(null)} className="text-zinc-400"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleEditClient} className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Nome *</label>
+                <input
+                  type="text"
+                  value={editClientForm.name}
+                  onChange={e => setEditClientForm({...editClientForm, name: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="edit-client-name"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Email *</label>
+                <input
+                  type="email"
+                  value={editClientForm.email}
+                  onChange={e => setEditClientForm({...editClientForm, email: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="edit-client-email"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Telefone</label>
+                <input
+                  type="tel"
+                  value={editClientForm.phone}
+                  onChange={e => setEditClientForm({...editClientForm, phone: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="edit-client-phone"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Plano Obelisco Care *</label>
+                <select
+                  value={editClientForm.plan_id}
+                  onChange={e => setEditClientForm({...editClientForm, plan_id: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="edit-client-plan"
+                >
+                  <option value="essencial">Essencial (3h/mes - 349 EUR)</option>
+                  <option value="preventivo">Preventivo (6h/mes - 699 EUR)</option>
+                  <option value="total">Total (12h/mes - 1290 EUR)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Ciclo de Faturacao *</label>
+                <select
+                  value={editClientForm.billing_cycle}
+                  onChange={e => setEditClientForm({...editClientForm, billing_cycle: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="edit-client-billing-cycle"
+                >
+                  <option value="monthly">Mensal</option>
+                  <option value="annual">Anual</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">
+                  Data de Inicio da Subscricao
+                </label>
+                <input
+                  type="date"
+                  value={editClientForm.subscription_start_date}
+                  onChange={e => setEditClientForm({...editClientForm, subscription_start_date: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="edit-client-start-date"
+                />
+                <p className="text-xs text-zinc-500 mt-1">
+                  Use isto para colocar a data real em que o cliente comecou (ex: ja era cliente ha meses mas so agora esta a ser registado)
+                </p>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                data-testid="submit-edit-client"
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                Guardar Alteracoes
+              </button>
+            </form>
           </div>
         </div>
       )}
