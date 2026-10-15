@@ -21,7 +21,14 @@ Site de serviços elétricos com:
 - [x] **Frontend**: botao "Adicionar Cliente" na tab Subscricoes do Admin Dashboard, modal de criacao (nome/email/telefone/plano/ciclo), modal de credenciais geradas (copiar dados), badge "Fatura Manual" vs "Stripe" na tabela; campo de password opcional no login de cliente; seccao "Mudar Password" na tab Conta do Client Dashboard
 - [x] **Testado**: 100% backend (15/15 testes, `/app/backend/tests/test_manual_customer.py`) e 100% frontend (`/app/test_reports/iteration_13.json`), incluindo regressao do login legado so-por-email
 
-### CORREÇÃO CRÍTICA (25/09/2026) - IVA não aparecia em Produção (Live mode)
+### NOVA FUNCIONALIDADE (15/10/2026) - Editar Cliente Manual
+- [x] **Pedido do utilizador**: poder editar dados de um cliente manual depois de criado, incluindo "backdating" da data de início da subscrição (ex: cliente já é mensal há tempos, mas só agora foi registado no sistema)
+- [x] **Backend**: `PUT /api/connect/admin/customers/{subscription_id}` - edita nome, email, telefone, plano, ciclo de faturação e `subscription_start_date` (recalcula `current_period_end` automaticamente). Só permite editar clientes `payment_method=manual_invoice` (subscrições Stripe ficam protegidas, pois são geridas pelo Stripe)
+- [x] **Validado por curl**: edição completa, bloqueio de edição em subscrição Stripe (400), bloqueio de email duplicado (400), bloqueio de data inválida (400) - todos OK
+- [x] **Frontend**: botão "Editar" (azul) visível apenas em linhas "Fatura Manual" na tabela de Subscrições; modal de edição pré-preenchido com campo de data (date picker)
+- [~] **Verificado parcialmente via screenshot** (modal abre e preenche corretamente); o submit final do formulário de edição não foi confirmado visualmente porque a sessão foi pausada pelo utilizador antes de gastar mais créditos - o endpoint backend já foi validado via curl, risco residual baixo
+
+
 - [x] **Bug reportado pelo utilizador**: no site já publicado, o checkout Stripe mostrava "Imposto: €0,00" mesmo com morada de Portugal preenchida
 - [x] **Causa raiz identificada**: a configuração fiscal do Stripe (Tax Settings + Tax Registration PT + tax_code dos produtos) tinha sido feita apenas no modo de TESTE da conta Stripe via script manual. O modo LIVE é um ambiente de dados separado na mesma conta e nunca recebeu essa configuração
 - [x] **Correção aplicada**: a configuração fiscal foi movida para uma função idempotente `ensure_stripe_tax_configured()`, chamada automaticamente no arranque do backend (`@app.on_event("startup")`). Esta função corre contra a chave Stripe atualmente ativa (teste ou live) e configura Tax Settings/Registration/tax_code apenas se ainda não existirem
