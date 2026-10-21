@@ -9,7 +9,7 @@ const heroSlides = [
     badge: "Plano de Proteção Exclusivo",
     title: "Obelisco Care",
     titleHighlight: "Tranquilidade Total",
-    subtitle: "Subscreva um plano mensal e tenha acesso prioritário, manutenção preventiva e horas de serviço incluídas. A partir de 39€/mês.",
+    subtitle: "Subscreva um plano mensal e tenha acesso prioritário, manutenção preventiva e horas de serviço incluídas. A partir de 349€/mês + IVA.",
     ctaPrimary: { text: "Ver Planos", href: "#obelisco-care" },
     ctaSecondary: { text: "Saber Mais", href: "#vantagens" },
     image: "https://static.prod-images.emergentagent.com/jobs/cbda47ad-351b-4c1c-8f47-fda2fc28d16b/images/04e69270deed11d1760bbc2bed8e9ec6a50ceca3bec2a63a32a16d4bf95abc05.jpeg",
