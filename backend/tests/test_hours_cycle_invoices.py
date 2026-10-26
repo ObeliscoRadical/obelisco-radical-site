@@ -169,11 +169,16 @@ class TestCycleAnchoring:
 
     def test_day_31_anchor_no_drift(self, admin_h, cust_b):
         """Client since 31st: after Feb (28/29) the cycle should go back to 31 Mar, not drift to 28th forever"""
+        # iter15: anchor is now the immutable 'customer_since' field
+        anchor = datetime(2025, 1, 31, tzinfo=timezone.utc)
         db.subscriptions.update_one({"id": cust_b["id"]}, {"$set": {
+            "customer_since": anchor.isoformat(),
             "current_period_start": "2025-01-31T00:00:00+00:00", "current_period_end": "2025-02-28T00:00:00+00:00"}})
         requests.get(f"{API}/connect/admin/subscriptions", headers=admin_h, timeout=20)
         sub = db.subscriptions.find_one({"id": cust_b["id"]})
-        ps = _iso(sub["current_period_start"])
+        ps, pe = _iso(sub["current_period_start"]), _iso(sub["current_period_end"])
+        exp_s, exp_e = _expected_cycle(anchor, datetime.now(timezone.utc))
+        assert (ps, pe) == (exp_s, exp_e), f"got {ps}..{pe} expected {exp_s}..{exp_e}"
         assert ps.day in (28, 29, 30, 31)
         # With a true anchor of day 31, months with 31 days must start on 31
         print("day-31 anchored sub now at", sub["current_period_start"], sub["current_period_end"])
