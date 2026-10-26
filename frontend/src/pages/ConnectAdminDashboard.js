@@ -4,7 +4,7 @@ import {
   Zap, Clock, AlertCircle, CheckCircle, Loader2, LogOut, Plus, ChevronRight,
   Calendar, FileText, User, Users, Settings, BarChart3, CreditCard, X,
   ClipboardList, History, RefreshCw, Edit2, Trash2, Search, Filter,
-  TrendingUp, DollarSign, UserPlus, Clock3, PieChart
+  TrendingUp, DollarSign, UserPlus, Clock3, PieChart, Lock
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -36,6 +36,7 @@ const ConnectAdminDashboard = () => {
   const [newClientCredentials, setNewClientCredentials] = useState(null);
   const [showEditClient, setShowEditClient] = useState(null);
   const [showNewInvoice, setShowNewInvoice] = useState(null);
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
   const [showAssign, setShowAssign] = useState(null);
   const [showAdjust, setShowAdjust] = useState(null);
   
@@ -44,6 +45,8 @@ const ConnectAdminDashboard = () => {
   const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly' });
   const [editClientForm, setEditClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly', subscription_start_date: '' });
   const [invoiceForm, setInvoiceForm] = useState({ subscription_id: '', amount: '', invoice_date: '', payment_status: 'paid', description: '' });
+  const [staffPasswordForm, setStaffPasswordForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
+  const [staffPasswordMsg, setStaffPasswordMsg] = useState({ type: '', text: '' });
   const [adjustForm, setAdjustForm] = useState({ hours: 0, reason: '' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -273,6 +276,45 @@ const ConnectAdminDashboard = () => {
     }
   };
 
+  const handleChangeStaffPassword = async (e) => {
+    e.preventDefault();
+    setStaffPasswordMsg({ type: '', text: '' });
+
+    if (staffPasswordForm.new_password !== staffPasswordForm.confirm_password) {
+      setStaffPasswordMsg({ type: 'error', text: 'As passwords novas nao coincidem' });
+      return;
+    }
+    if (staffPasswordForm.new_password.length < 6) {
+      setStaffPasswordMsg({ type: 'error', text: 'A nova password deve ter pelo menos 6 caracteres' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/connect/staff/change-password`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          current_password: staffPasswordForm.current_password,
+          new_password: staffPasswordForm.new_password
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.detail || 'Erro ao mudar password');
+      }
+      setStaffPasswordMsg({ type: 'success', text: 'Password alterada com sucesso' });
+      setStaffPasswordForm({ current_password: '', new_password: '', confirm_password: '' });
+    } catch (err) {
+      setStaffPasswordMsg({ type: 'error', text: err.message });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAssignTech = async (requestId, techId) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/connect/service-requests/${requestId}/assign?technician_id=${techId}`, {
@@ -379,6 +421,14 @@ const ConnectAdminDashboard = () => {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-zinc-400 hidden sm:block">{user?.name}</span>
+            <button
+              onClick={() => setShowStaffPassword(true)}
+              className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors text-sm"
+              data-testid="staff-change-password-btn"
+            >
+              <Lock className="w-4 h-4" />
+              <span className="hidden sm:inline">Password</span>
+            </button>
             <button
               onClick={handleLogout}
               className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
@@ -1308,6 +1358,69 @@ const ConnectAdminDashboard = () => {
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                 Criar Fatura
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Staff Change Password Modal */}
+      {showStaffPassword && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowStaffPassword(false)}>
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Mudar a Minha Password</h3>
+              <button onClick={() => setShowStaffPassword(false)} className="text-zinc-400"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleChangeStaffPassword} className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Password Atual *</label>
+                <input
+                  type="password"
+                  value={staffPasswordForm.current_password}
+                  onChange={e => setStaffPasswordForm({...staffPasswordForm, current_password: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="staff-current-password-input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Nova Password *</label>
+                <input
+                  type="password"
+                  value={staffPasswordForm.new_password}
+                  onChange={e => setStaffPasswordForm({...staffPasswordForm, new_password: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  minLength={6}
+                  data-testid="staff-new-password-input"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Confirmar Nova Password *</label>
+                <input
+                  type="password"
+                  value={staffPasswordForm.confirm_password}
+                  onChange={e => setStaffPasswordForm({...staffPasswordForm, confirm_password: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  minLength={6}
+                  data-testid="staff-confirm-password-input"
+                />
+              </div>
+              {staffPasswordMsg.text && (
+                <p className={`text-sm ${staffPasswordMsg.type === 'error' ? 'text-red-400' : 'text-green-400'}`} data-testid="staff-password-message">
+                  {staffPasswordMsg.text}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                data-testid="submit-staff-password"
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                Guardar Nova Password
               </button>
             </form>
           </div>

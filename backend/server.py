@@ -570,7 +570,7 @@ async def connect_get_current_user(request: Request):
     if user_type == "CUSTOMER":
         subscription = await db.subscriptions.find_one(
             {"id": session.get("subscription_id")},
-            {"_id": 0}
+            {"_id": 0, "password_hash": 0}
         )
         return {
             "email": session.get("user_email"),
@@ -1322,6 +1322,31 @@ async def change_customer_password(data: ChangeCustomerPasswordRequest, request:
     await db.subscriptions.update_one(
         {"id": subscription["id"]},
         {"$set": {"password_hash": hash_customer_password(data.new_password), "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+
+    return {"success": True, "message": "Password alterada com sucesso"}
+
+@api_router.post("/connect/staff/change-password")
+async def change_staff_password(data: ChangeCustomerPasswordRequest, request: Request):
+    """Logged-in staff/admin/technician changes their own password"""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") not in ("ADMIN", "TECHNICIAN"):
+        raise HTTPException(status_code=403, detail="Apenas staff")
+
+    staff = await db.staff_users.find_one({"id": session.get("staff_id")})
+    if not staff:
+        raise HTTPException(status_code=404, detail="Utilizador nao encontrado")
+
+    if not verify_password(data.current_password, staff["password_hash"]):
+        raise HTTPException(status_code=401, detail="Password atual incorreta")
+
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="A nova password deve ter pelo menos 6 caracteres")
+
+    await db.staff_users.update_one(
+        {"id": staff["id"]},
+        {"$set": {"password_hash": hash_password(data.new_password)}}
     )
 
     return {"success": True, "message": "Password alterada com sucesso"}
@@ -2625,8 +2650,11 @@ async def get_customer_interventions(email: str):
     return {"interventions": interventions}
 
 @api_router.get("/customer/payments")
-async def get_customer_payments(email: str):
-    """Get payment history for a customer"""
+async def get_customer_payments(email: str, request: Request):
+    """Get payment history for a customer (admin tool - not used by the public customer-facing widgets)"""
+    session = await get_user_from_token(request)
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
     # Get one-time payments
     payments = await db.payments.find(
         {"customer_email": email, "payment_status": "paid"},
@@ -2637,8 +2665,13 @@ async def get_customer_payments(email: str):
 
 # Admin endpoint to update intervention hours
 @api_router.post("/admin/intervention/{intervention_id}/complete")
-async def complete_intervention(intervention_id: str, hours_used: float):
+async def complete_intervention(intervention_id: str, hours_used: float, request: Request):
     """Mark intervention as completed and update hours used"""
+    session = await get_user_from_token(request)
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+    if hours_used < 0:
+        raise HTTPException(status_code=400, detail="Horas invalidas")
     
     intervention = await db.interventions.find_one({"id": intervention_id}, {"_id": 0})
     if not intervention:
@@ -2692,8 +2725,11 @@ async def get_payment_methods():
     }
 
 @api_router.get("/payments/{payment_id}")
-async def get_payment_details(payment_id: str):
-    """Get payment details by ID"""
+async def get_payment_details(payment_id: str, request: Request):
+    """Get payment details by ID (admin tool)"""
+    session = await get_user_from_token(request)
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
     
     payment = await db.payments.find_one({"id": payment_id}, {"_id": 0})
     
@@ -2707,8 +2743,11 @@ async def get_payment_details(payment_id: str):
     return payment
 
 @api_router.get("/payments")
-async def list_payments(limit: int = 50):
-    """List recent payments"""
+async def list_payments(request: Request, limit: int = 50):
+    """List recent payments (admin tool)"""
+    session = await get_user_from_token(request)
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
     
     payments = await db.payments.find({}, {"_id": 0}).sort("created_at", -1).to_list(limit)
     return {"payments": payments, "count": len(payments)}
