@@ -211,7 +211,7 @@ const ConnectAdminDashboard = () => {
       phone: sub.customer_phone || '',
       plan_id: sub.plan_id || 'essencial',
       billing_cycle: sub.billing_cycle || 'monthly',
-      subscription_start_date: sub.current_period_start ? sub.current_period_start.slice(0, 10) : ''
+      subscription_start_date: sub.customer_since ? sub.customer_since.slice(0, 10) : (sub.current_period_start ? sub.current_period_start.slice(0, 10) : '')
     });
     setShowEditClient(sub);
   };

@@ -17,7 +17,7 @@ load_dotenv("/app/frontend/.env")
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL").rstrip("/")
 API = f"{BASE_URL}/api"
-ADMIN = {"email": "admin@obelisco.pt", "password": "admin123"}
+ADMIN = {"email": os.environ.get("ADMIN_STAFF_EMAIL"), "password": os.environ.get("ADMIN_STAFF_PASSWORD")}
 
 mongo = MongoClient(os.environ.get("MONGO_URL"))
 db = mongo[os.environ.get("DB_NAME")]

@@ -9,7 +9,7 @@ BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://obelisco-carousel.pr
 API = f"{BASE_URL}/api"
 
 ADMIN_EMAIL = "admin@obelisco.pt"
-ADMIN_PASSWORD = "admin123"
+ADMIN_PASSWORD = os.environ.get("ADMIN_STAFF_PASSWORD")
 
 # Plan hours and pricing (must match backend PLAN_HOURS / PLAN_PRICING)
 PLAN_HOURS = {"essencial": 3, "preventivo": 6, "total": 12}
@@ -117,9 +117,12 @@ class TestEditManualCustomer:
         )
         assert r.status_code == 200, r.text
         sub = r.json()["subscription"]
-        assert sub["current_period_start"].startswith("2024-01-15")
-        # +30 days -> 2024-02-14
-        assert sub["current_period_end"].startswith("2024-02-14"), sub["current_period_end"]
+        # Iteration 14: period rolls forward to the CURRENT cycle anchored to day 15
+        from datetime import datetime, timezone
+        from dateutil.relativedelta import relativedelta
+        ps = datetime.fromisoformat(sub["current_period_start"]); pe = datetime.fromisoformat(sub["current_period_end"])
+        assert ps.day == 15 and pe == ps + relativedelta(months=1)
+        assert ps <= datetime.now(timezone.utc) < pe
 
     def test_backdate_start_date_recomputes_period_end_annual(self, admin_headers, manual_sub):
         start = "2023-06-01"
@@ -130,9 +133,11 @@ class TestEditManualCustomer:
         )
         assert r.status_code == 200, r.text
         sub = r.json()["subscription"]
-        assert sub["current_period_start"].startswith("2023-06-01")
-        # +365 days -> 2024-05-31
-        assert sub["current_period_end"].startswith("2024-05-31"), sub["current_period_end"]
+        from datetime import datetime, timezone
+        from dateutil.relativedelta import relativedelta
+        ps = datetime.fromisoformat(sub["current_period_start"]); pe = datetime.fromisoformat(sub["current_period_end"])
+        assert (ps.month, ps.day) == (6, 1) and pe == ps + relativedelta(years=1)
+        assert ps <= datetime.now(timezone.utc) < pe
 
     def test_edit_duplicate_email_fails(self, admin_headers, manual_sub):
         # Create another active manual customer

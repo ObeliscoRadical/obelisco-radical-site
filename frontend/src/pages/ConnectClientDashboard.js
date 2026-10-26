@@ -416,7 +416,7 @@ const ConnectClientDashboard = () => {
                 </div>
                 <div>
                   <p className="text-xs text-zinc-500 mb-1">Desde</p>
-                  <p className="text-white font-bold">{formatDate(dashboard?.subscription?.created_at)}</p>
+                  <p className="text-white font-bold">{formatDate(dashboard?.subscription?.customer_since || dashboard?.subscription?.created_at)}</p>
                 </div>
               </div>
             </div>

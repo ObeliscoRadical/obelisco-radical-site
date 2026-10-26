@@ -1,0 +1,69 @@
+{
+  "summary": "Tested backend and frontend for the security fixes, the manual-customer hours cycle (A), invoices (B), Edit Client (C) and a regression smoke test. Backend: 69 of 69 pass in the security, edit-customer, manual-customer, technicians, connect-auth and stripe-vat suites. test_hours_cycle_invoices.py fails 3 of 17 because of real bugs. The new test_edit_email_invoices.py fails 2 of 2, both real bugs. SECURITY: admin123 now gets 401 and AuxGkyRVwpotScUY works. The 4 locked endpoints return 401 without a token and 403 for a customer token, and work with an admin token. /connect/me no longer contains password_hash. Staff change-password works (401 wrong current password, 400 too short, 200 success, old password then fails). In the UI the Password modal shows the mismatch, wrong-password and success messages; after logout the old password gave 'Credenciais invalidas' and the new one logged in. I reverted the admin password to AuxGkyRVwpotScUY, which is the final password. FEATURE A (UI + DB): I created a client, set start date 2026-08-17 (server date is 2026-10-26), and the period became 2026-10-17 to 2026-11-17 with 0h used. Ajustar -3h set hours_used to 3. I then forced the period to look expired; on the customer dashboard fetch, hours_used went back to exactly 0.0 and the period moved forward exactly one month on day 17. Stripe subscriptions were not touched. FEATURE B: the +Fatura modal created 2 invoices (overdue and paid). The customer's Historico > Faturas section shows both, newest first, with 'Em atraso'/'Pago' badges and the 'Fatura Manual' label. No cross-customer leakage. The Stripe invoice webhook is idempotent. FEATURE C: name and phone edits persist and show in the table. Regression: email-only login for a Stripe customer, admin tabs and stats all work. Bugs found are listed below.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "PUT /api/connect/admin/customers/{id} (used by the Editar modal)", "issue": "Any UI edit (e.g. phone only) wipes the hours the client has used. The modal always resends subscription_start_date (prefilled from current_period_start), and the backend sets hours_used=0 whenever that field is present. Reproduced: hours_used 2 became 0.0 after a phone-only edit (test_edit_without_date_change_should_not_reset_hours). Fix: only reset hours and recompute the period when the date actually differs from the stored one, or only send the date from the frontend when it was changed.", "priority": "HIGH"},
+      {"endpoint": "GET /api/customer/subscriptions?email= , GET /api/customer/subscription/{id} , GET /api/customer/interventions?email=", "issue": "These are still unauthenticated. Anyone who knows an email can read the full subscription: name, phone, plan, amount, hours and Stripe IDs. This includes manual customers whose login is password-protected, which makes their password protection pointless for this data. Confirmed with curl for cliente.fatura.teste@example.com (200 with full data).", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "_advance_period / ensure_manual_subscription_period_current", "issue": "Clients whose start day is 29-31 drift to an earlier day for good. Each new period is computed from the previous period's start instead of the original anchor date, so 31 Jan -> 28 Feb -> 28 Mar -> ... (got 2026-09-28 for an anchor of 31). Fix: store an immutable anchor field (e.g. customer_since) and compute anchor + relativedelta(months=k)."},
+      {"endpoint": "Data model", "issue": "The original 'cliente desde' date is not stored anywhere. The edit modal prefills Data de Inicio with current_period_start (today's cycle start), and the client dashboard 'Desde' shows created_at (26/10/2026) instead of the backdated date (17/08/2026)."},
+      {"endpoint": "POST /api/connect/admin/invoices", "issue": "Negative or zero amounts are accepted (200). Add Field(gt=0)."},
+      {"endpoint": "PUT /api/connect/admin/customers/{id} (email change) + GET /api/connect/customer/invoices", "issue": "Changing a client's email orphans their history. Invoices, work_logs and service_requests are looked up by customer_email and are not updated, so after the change the customer sees 0 invoices. Existing sessions keep the old user_email, so dashboard and change-password stop working until they log in again. Fix: filter customer invoices by subscription_id, and cascade the email change to related records."},
+      {"endpoint": "POST /api/connect/login/staff", "issue": "No brute-force lockout: login still succeeded after 6 wrong attempts. Staff passwords use unsalted SHA-256 (hash_password); bcrypt is used only for customers. The seed code still falls back to 'admin123'/'tech123' if the environment variables are missing, and the technician still uses the known default 'tech123'."},
+      {"endpoint": "CORS", "issue": "CORS_ORIGINS='*' together with allow_credentials=True means any origin is reflected back (tested: Origin https://evil.example.com was allowed with credentials). Restrict to explicit origins."},
+      {"endpoint": "Legacy data", "issue": "Subscriptions created before this fix still have 30-day periods (cliente.fatura.teste: 10-15 to 11-14), so their anchor will move to day 14 at the next rollover. Consider a one-off migration."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "ConnectAdminDashboard Subscricoes table 'Disponiveis' column + Overview 'Subscricoes Ativas' card + Ajustar Horas modal 'Saldo Atual'", "issue": "These read sub.hours_available, but the backend never returns that field (0 of 98 subscriptions have it). As a result the table always shows a green '0h', the overview shows 'h disponiveis' and the adjust modal shows 'h' with no number. Compute it on the frontend (hours_included - hours_used) or return it from /connect/admin/subscriptions.", "selector": "[data-testid^='adjust-btn-']", "priority": "HIGH"},
+      {"component": "Logout in Admin/Client/Tech dashboards", "issue": "Logout clears localStorage and calls navigate('/connect'), but App.js routes on its own currentPath state (useState(window.location.pathname)), which does not change on router navigation. The URL changes to /connect but the dashboard stays on screen until a full reload. Use window.location.href='/connect' or update currentPath.", "selector": "[data-testid='admin-logout-btn'], [data-testid='logout-btn']", "priority": "MEDIUM"},
+      {"component": "Ajustes tab", "issue": "'Por:' is always blank. The frontend shows adj.admin_email but the backend stores admin_name.", "selector": "admin-tab-adjustments", "priority": "LOW"},
+      {"component": "Staff Password modal", "issue": "After a successful change the modal stays open with the success message; it only closes via the X button. Consider auto-closing.", "selector": "[data-testid='submit-staff-password']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin Subscricoes table", "issues": ["No period/cycle dates (current_period_start/end) are shown, so the admin cannot see a client's cycle in the UI; I had to check it in the DB."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_security_iter14.py",
+    "/app/backend/tests/test_hours_cycle_invoices.py",
+    "/app/backend/tests/test_edit_email_invoices.py",
+    "/app/backend/tests/test_edit_customer.py",
+    "/app/test_reports/pytest/iter14.xml"
+  ],
+  "action_items": [
+    "HIGH: Stop the Editar modal from wiping hours_used. Only treat subscription_start_date as changed when it differs from the stored value (backend), and/or only send it when the admin changed it (frontend).",
+    "HIGH: Fix the admin hours_available display (table, overview card, Ajustar Horas 'Saldo Atual'). Compute it as hours_included - hours_used.",
+    "HIGH (security): Add authentication to GET /api/customer/subscriptions, /api/customer/subscription/{id} and /api/customer/interventions, or scope them to the logged-in customer's session.",
+    "Store an immutable anchor date (customer_since) and compute rollovers from it so day 29-31 clients do not drift. Show it as 'Desde' on the client dashboard and prefill the edit modal with it.",
+    "Validate invoice amount > 0.",
+    "Filter customer invoices by subscription_id (or cascade email changes) so invoice history survives an email edit.",
+    "Fix logout in all 3 Connect dashboards (navigate() does not update App.js currentPath).",
+    "Security hardening: staff login lockout/rate limiting, bcrypt for staff passwords, remove the 'admin123'/'tech123' fallbacks in startup_seed_accounts, restrict CORS_ORIGINS.",
+    "Fix the Ajustes 'Por:' field (admin_email vs admin_name).",
+    "Update /app/memory/test_credentials.md: it still lists admin123 as the admin password."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 3776 lines. Split the connect auth, admin, invoices and stripe webhook code into routers.",
+    "edit_manual_customer: hours_reset_needed is triggered by the presence of the field, not by an actual change. This is the root cause of the hours wipe, because the UI always sends the field.",
+    "ensure_manual_subscription_period_current writes to the DB during GET requests and runs once per row in the admin list (N updates at most). That is acceptable, but there is no concurrency guard: two parallel requests can both roll over. They are idempotent because the reset is to 0, but intervention hours added between the two could be lost.",
+    "complete_intervention calls the rollover and then does $inc on hours_used as two separate operations. If a rollover happens elsewhere between them, the hours could land in the wrong period. Minor.",
+    "list_customer_invoices filters by customer_email while admin filters by subscription_id. Inconsistent, and fragile when emails change."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_security_iter14.py (new)",
+    "/app/backend/tests/test_edit_email_invoices.py (new)",
+    "/app/backend/tests/test_edit_customer.py (2 outdated period assertions changed to the new rolled-forward, anchored behaviour)",
+    "/app/backend/tests/test_hours_cycle_invoices.py, test_manual_customer.py, test_admin_technicians.py, test_edit_customer.py, conftest.py (admin password now read from ADMIN_STAFF_PASSWORD in backend/.env instead of hardcoded admin123)"
+  ],
+  "success_rate": {"backend": "~92% (83/90; the 5 real failures in test_hours_cycle_invoices and test_edit_email_invoices are listed above, plus 2 one-off network timeouts that passed on rerun)", "frontend": "~80% (all requested flows work; hours_available display and logout bugs)"},
+  "test_credentials": "Admin admin@obelisco.pt / AuxGkyRVwpotScUY. This is the final password: it was changed to TmpIter14Pass!42 during the UI test and changed back. Technician tecnico@obelisco.pt / tech123 (changed and restored by pytest). UI test client: ui_iter14_1793050732@example.com / s3AQiXdbsI (sub id 02294084-53c9-47a7-a0fa-1ed061046781, 2 manual invoices).",
+  "seed_data_creation": "UI test client ui_iter14_1793050732@example.com with 2 invoices was left in place. Pytest fixtures clean up their own test_cycle_*, test_sec_* and test_emailchg_* records. test_manual_customer still leaves test_plan_* customers behind.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "The server clock is 2026-10-26. Regression command: pytest /app/backend/tests/test_security_iter14.py test_hours_cycle_invoices.py test_edit_email_invoices.py test_edit_customer.py. The known failures that should pass after fixes are test_edit_without_date_change_should_not_reset_hours, test_day_31_anchor_no_drift, test_negative_amount, test_invoices_survive_email_change and test_staff_bruteforce_lockout (the last only if lockout is implemented). Login testids: connect-email-input, connect-password-input (staff), connect-customer-password-input (customer), connect-login-btn. The 'Equipa / Admin' text switches to the staff tab. Client tabs: tab-history etc.",
+  "rca of the issue": "Hours wipe: openEditClient() prefills subscription_start_date with current_period_start.slice(0,10), and handleEditClient sends the whole form. The backend sees data.subscription_start_date is not None, so it sets hours_reset_needed=True and hours_used=0. Day drift: _advance_period(period_start) chains from the previous, already-clamped period start (Feb 28), so the anchor is permanently reduced. Admin '0h': the JSX reads sub.hours_available, which no endpoint computes for the admin list."
+}

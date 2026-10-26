@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="7" skipped="0" tests="61" time="63.281" timestamp="2026-10-26T21:34:46.846887+00:00" hostname="agent-env-0ed79e08-25fa-4cb9-a7bc-d045ea8b4cfa"><testcase classname="tests.test_security_iter14.TestAdminPassword" name="test_old_default_password_rejected" time="0.305" /><testcase classname="tests.test_security_iter14.TestAdminPassword" name="test_new_password_accepted" time="0.178" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_no_auth_rejected[get-/payments]" time="0.144" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_no_auth_rejected[get-/payments/some-id]" time="0.136" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_no_auth_rejected[get-/customer/payments?email=teste.obelisco@gmail.com]" time="0.132" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_no_auth_rejected[post-/admin/intervention/some-id/complete?hours_used=1]" time="1.137" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_customer_token_rejected" time="1.203" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_admin_list_payments" time="0.155" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_admin_payment_detail" time="0.421" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_admin_customer_payments" time="0.120" /><testcase classname="tests.test_security_iter14.TestLockedEndpoints" name="test_admin_intervention_complete" time="0.560" /><testcase classname="tests.test_security_iter14.TestMeNoLeak" name="test_manual_customer_me_no_password_hash" time="0.524" /><testcase classname="tests.test_security_iter14.TestMeNoLeak" name="test_admin_me_no_password_hash" time="0.139" /><testcase classname="tests.test_security_iter14.TestStaffChangePassword" name="test_change_password_flow_technician" time="1.132" /><testcase classname="tests.test_security_iter14.TestStaffChangePassword" name="test_customer_cannot_use_staff_endpoint" time="0.507" /><testcase classname="tests.test_security_iter14.TestStaffChangePassword" name="test_no_auth" time="0.132" /><testcase classname="tests.test_security_iter14.TestInvoicesAuth" name="test_invoices_require_auth" time="0.326" /><testcase classname="tests.test_security_iter14.TestInvoicesAuth" name="test_admin_filter_by_subscription" time="0.278" /><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_edit_backdated_start_date_lands_on_current_cycle" time="0.625" /><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_consume_hours_then_rollover_resets_to_exact_zero" time="0.289" /><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_multi_cycle_skip_still_resets_and_anchors" time="0.485" /><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_stripe_subscription_untouched" time="0.163" /><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_edit_stripe_sub_rejected" time="0.176" /><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_edit_without_date_change_should_not_reset_hours" time="0.269"><failure message="AssertionError: phone-only edit via UI payload wiped consumed hours&#10;assert 0.0 == 2">tests/test_hours_cycle_invoices.py:168: in test_edit_without_date_change_should_not_reset_hours
+    assert r.json()["subscription"]["hours_used"] == 2, "phone-only edit via UI payload wiped consumed hours"
+E   AssertionError: phone-only edit via UI payload wiped consumed hours
+E   assert 0.0 == 2</failure></testcase><testcase classname="tests.test_hours_cycle_invoices.TestCycleAnchoring" name="test_day_31_anchor_no_drift" time="0.503"><failure message="AssertionError: Drift: anchor 31 drifted to 2026-09-28&#10;assert not (28 == 28 and 9 not in (2,))&#10; +  where 28 = datetime.datetime(2026, 9, 28, 0, 0, tzinfo=datetime.timezone.utc).day&#10; +  and   9 = datetime.datetime(2026, 9, 28, 0, 0, tzinfo=datetime.timezone.utc).month">tests/test_hours_cycle_invoices.py:180: in test_day_31_anchor_no_drift
+    assert not (ps.day == 28 and ps.month not in (2,)), f"Drift: anchor 31 drifted to {ps.date()}"
+E   AssertionError: Drift: anchor 31 drifted to 2026-09-28
+E   assert not (28 == 28 and 9 not in (2,))
+E    +  where 28 = datetime.datetime(2026, 9, 28, 0, 0, tzinfo=datetime.timezone.utc).day
+E    +  and   9 = datetime.datetime(2026, 9, 28, 0, 0, tzinfo=datetime.timezone.utc).month</failure></testcase><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_create_manual_invoice_and_list" time="0.577" /><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_admin_list_all_sorted" time="0.122" /><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_invalid_subscription_404" time="0.127" /><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_invalid_date_400" time="0.129" /><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_invalid_status_422" time="0.126" /><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_negative_amount" time="0.139"><failure message="AssertionError: negative invoice amount accepted&#10;assert 200 in (400, 422)&#10; +  where 200 = &lt;Response [200]&gt;.status_code">tests/test_hours_cycle_invoices.py:229: in test_negative_amount
+    assert r.status_code in (400, 422), "negative invoice amount accepted"
+E   AssertionError: negative invoice amount accepted
+E   assert 200 in (400, 422)
+E    +  where 200 = &lt;Response [200]&gt;.status_code</failure></testcase><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_non_admin_403" time="0.770" /><testcase classname="tests.test_hours_cycle_invoices.TestInvoices" name="test_customer_sees_only_own" time="1.135" /><testcase classname="tests.test_hours_cycle_invoices.TestStripeWebhookInvoice" name="test_webhook_creates_stripe_invoice_idempotent_and_mixed_list" time="0.715" /><testcase classname="tests.test_hours_cycle_invoices.TestStripeWebhookInvoice" name="test_bad_signature_rejected" time="0.139" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_requires_admin" time="0.699" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_empty_body_returns_400" time="0.135" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_invalid_date_returns_400" time="0.141" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_nonexistent_404" time="0.156" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_response_has_no_password_hash" time="0.144" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_plan_and_billing_recomputes_hours_amount" time="0.292" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_backdate_start_date_recomputes_period_end_monthly" time="0.172"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in method startswith of str object at 0xffd66ab45b60&gt;('2024-01-15')&#10; +    where &lt;built-in method startswith of str object at 0xffd66ab45b60&gt; = '2026-10-15T00:00:00+00:00'.startswith">tests/test_edit_customer.py:120: in test_backdate_start_date_recomputes_period_end_monthly
+    assert sub["current_period_start"].startswith("2024-01-15")
+E   AssertionError: assert False
+E    +  where False = &lt;built-in method startswith of str object at 0xffd66ab45b60&gt;('2024-01-15')
+E    +    where &lt;built-in method startswith of str object at 0xffd66ab45b60&gt; = '2026-10-15T00:00:00+00:00'.startswith</failure></testcase><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_backdate_start_date_recomputes_period_end_annual" time="0.150"><failure message="AssertionError: assert False&#10; +  where False = &lt;built-in method startswith of str object at 0xffd66ab14030&gt;('2023-06-01')&#10; +    where &lt;built-in method startswith of str object at 0xffd66ab14030&gt; = '2026-06-01T00:00:00+00:00'.startswith">tests/test_edit_customer.py:133: in test_backdate_start_date_recomputes_period_end_annual
+    assert sub["current_period_start"].startswith("2023-06-01")
+E   AssertionError: assert False
+E    +  where False = &lt;built-in method startswith of str object at 0xffd66ab14030&gt;('2023-06-01')
+E    +    where &lt;built-in method startswith of str object at 0xffd66ab14030&gt; = '2026-06-01T00:00:00+00:00'.startswith</failure></testcase><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_duplicate_email_fails" time="0.512" /><testcase classname="tests.test_edit_customer.TestEditManualCustomer" name="test_edit_persists_in_db" time="0.306" /><testcase classname="tests.test_edit_customer.TestEditStripeRejection" name="test_edit_stripe_subscription_rejected" time="0.265" /><testcase classname="tests.test_manual_customer.TestCreateManualCustomer" name="test_create_requires_admin" time="0.148" /><testcase classname="tests.test_manual_customer.TestCreateManualCustomer" name="test_create_success" time="0.542" /><testcase classname="tests.test_manual_customer.TestCreateManualCustomer" name="test_duplicate_active_email_fails" time="0.135" /><testcase classname="tests.test_manual_customer.TestCreateManualCustomer" name="test_admin_subscriptions_no_password_hash" time="0.150" /><testcase classname="tests.test_manual_customer.TestCustomerLogin" name="test_login_no_password_fails" time="1.183" /><testcase classname="tests.test_manual_customer.TestCustomerLogin" name="test_login_wrong_password_fails" time="0.375" /><testcase classname="tests.test_manual_customer.TestCustomerLogin" name="test_login_correct_password_success" time="0.355" /><testcase classname="tests.test_manual_customer.TestCustomerLogin" name="test_dashboard_no_password_hash_leak" time="0.141" /><testcase classname="tests.test_manual_customer.TestCustomerLogin" name="test_legacy_customer_email_only_login_still_works" time="0.159" /><testcase classname="tests.test_manual_customer.TestChangePassword" name="test_change_password_wrong_current" time="0.369" /><testcase classname="tests.test_manual_customer.TestChangePassword" name="test_change_password_too_short" time="0.405" /><testcase classname="tests.test_manual_customer.TestChangePassword" name="test_change_password_success_and_old_fails" time="1.266" /><testcase classname="tests.test_manual_customer.TestPlanVariants" name="test_plan_hours[essencial-3]" time="20.011"><failure message="requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='obelisco-carousel.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/connect/admin/customers (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66ab8a510&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)'))">/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:204: in _new_conn
+    sock = connection.create_connection(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:85: in create_connection
+    raise err
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:73: in create_connection
+    sock.connect(sa)
+E   TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:787: in urlopen
+    response = self._make_request(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:488: in _make_request
+    raise new_e
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:464: in _make_request
+    self._validate_conn(conn)
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:1093: in _validate_conn
+    conn.connect()
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:759: in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:213: in _new_conn
+    raise ConnectTimeoutError(
+E   urllib3.exceptions.ConnectTimeoutError: (&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66ab8a510&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)')
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:644: in send
+    resp = conn.urlopen(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:841: in urlopen
+    retries = retries.increment(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/retry.py:535: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='obelisco-carousel.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/connect/admin/customers (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66ab8a510&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)'))
+
+During handling of the above exception, another exception occurred:
+tests/test_manual_customer.py:155: in test_plan_hours
+    r = requests.post(f"{API}/connect/admin/customers", json={
+/root/.venv/lib/python3.11/site-packages/requests/api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:665: in send
+    raise ConnectTimeout(e, request=request)
+E   requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='obelisco-carousel.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/connect/admin/customers (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66ab8a510&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)'))</failure></testcase><testcase classname="tests.test_manual_customer.TestPlanVariants" name="test_plan_hours[preventivo-6]" time="20.074"><failure message="requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='obelisco-carousel.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/connect/admin/customers (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66900fd10&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)'))">/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:204: in _new_conn
+    sock = connection.create_connection(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:85: in create_connection
+    raise err
+/root/.venv/lib/python3.11/site-packages/urllib3/util/connection.py:73: in create_connection
+    sock.connect(sa)
+E   TimeoutError: timed out
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:787: in urlopen
+    response = self._make_request(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:488: in _make_request
+    raise new_e
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:464: in _make_request
+    self._validate_conn(conn)
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:1093: in _validate_conn
+    conn.connect()
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:759: in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/urllib3/connection.py:213: in _new_conn
+    raise ConnectTimeoutError(
+E   urllib3.exceptions.ConnectTimeoutError: (&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66900fd10&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)')
+
+The above exception was the direct cause of the following exception:
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:644: in send
+    resp = conn.urlopen(
+/root/.venv/lib/python3.11/site-packages/urllib3/connectionpool.py:841: in urlopen
+    retries = retries.increment(
+/root/.venv/lib/python3.11/site-packages/urllib3/util/retry.py:535: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='obelisco-carousel.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/connect/admin/customers (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66900fd10&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)'))
+
+During handling of the above exception, another exception occurred:
+tests/test_manual_customer.py:155: in test_plan_hours
+    r = requests.post(f"{API}/connect/admin/customers", json={
+/root/.venv/lib/python3.11/site-packages/requests/api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/root/.venv/lib/python3.11/site-packages/requests/adapters.py:665: in send
+    raise ConnectTimeout(e, request=request)
+E   requests.exceptions.ConnectTimeout: HTTPSConnectionPool(host='obelisco-carousel.preview.emergentagent.com', port=443): Max retries exceeded with url: /api/connect/admin/customers (Caused by ConnectTimeoutError(&lt;HTTPSConnection(host='obelisco-carousel.preview.emergentagent.com', port=443) at 0xffd66900fd10&gt;, 'Connection to obelisco-carousel.preview.emergentagent.com timed out. (connect timeout=10)'))</failure></testcase><testcase classname="tests.test_manual_customer.TestPlanVariants" name="test_plan_hours[total-12]" time="0.609" /></testsuite></testsuites>

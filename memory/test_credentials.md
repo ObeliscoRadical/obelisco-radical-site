@@ -10,7 +10,7 @@
 
 ### Administrador
 - **Email:** admin@obelisco.pt
-- **Password:** admin123
+- **Password:** AuxGkyRVwpotScUY (alterada em 26/10/2026 - password antiga 'admin123' foi um risco de seguranca critico e foi rotacionada; admin pode mudar a sua propria password em qualquer altura no botao "Password" no cabecalho do Admin Dashboard)
 - **Role:** ADMIN
 
 ### Técnico

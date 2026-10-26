@@ -1,4 +1,7 @@
 import pytest
+from dotenv import load_dotenv
+load_dotenv("/app/backend/.env")
+load_dotenv("/app/frontend/.env")
 import requests
 import os
 
@@ -8,7 +11,7 @@ BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://obelisco-carousel.pr
 # In production, these should be set via environment variables
 TEST_CUSTOMER_EMAIL = os.environ.get('TEST_CUSTOMER_EMAIL', 'teste.obelisco@gmail.com')
 TEST_ADMIN_EMAIL = os.environ.get('TEST_ADMIN_EMAIL', 'admin@obelisco.pt')
-TEST_ADMIN_PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD', 'admin123')
+TEST_ADMIN_PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD') or os.environ.get('ADMIN_STAFF_PASSWORD')
 TEST_TECHNICIAN_EMAIL = os.environ.get('TEST_TECHNICIAN_EMAIL', 'tecnico@obelisco.pt')
 TEST_TECHNICIAN_PASSWORD = os.environ.get('TEST_TECHNICIAN_PASSWORD', 'tech123')
 
