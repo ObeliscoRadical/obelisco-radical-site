@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import Any, List, Literal, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
+from dateutil.relativedelta import relativedelta
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import httpx
 import stripe
@@ -332,6 +333,14 @@ class EditManualCustomerRequest(BaseModel):
     billing_cycle: Optional[Literal["monthly", "annual"]] = None
     subscription_start_date: Optional[str] = None  # ISO date string, e.g. "2025-06-01"
 
+class ManualInvoiceCreate(BaseModel):
+    subscription_id: str
+    amount: float
+    currency: str = "EUR"
+    invoice_date: str  # ISO date string, e.g. "2026-01-15"
+    payment_status: Literal["paid", "pending", "overdue"] = "paid"
+    description: Optional[str] = None
+
 class SiteInboundRequest(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -397,6 +406,50 @@ def generate_initial_password(length: int = 10) -> str:
 def generate_token() -> str:
     """Generate a simple session token"""
     return secrets.token_urlsafe(32)
+
+def _advance_period(start: datetime, billing_cycle: str) -> datetime:
+    """Advance a billing period anchor date by exactly one calendar cycle
+    (1 month or 1 year), preserving the day-of-month (handles month-length
+    differences automatically, e.g. 31 Jan -> 28/29 Feb)."""
+    return start + (relativedelta(years=1) if billing_cycle == "annual" else relativedelta(months=1))
+
+async def ensure_manual_subscription_period_current(subscription: dict) -> dict:
+    """For manual_invoice subscriptions only: roll the billing period forward,
+    anchored to the original 'cliente desde' date (current_period_start), every
+    time the current period has elapsed. Hours_used is reset to exactly 0 on
+    every rollover - leftover hours are discarded, never carried over or added
+    to the new period. Stripe-paid subscriptions are left untouched here since
+    Stripe webhooks already manage their period/hours reset."""
+    if subscription.get("payment_method") != "manual_invoice" or subscription.get("status") != "active":
+        return subscription
+
+    period_end_str = subscription.get("current_period_end")
+    period_start_str = subscription.get("current_period_start")
+    if not period_end_str or not period_start_str:
+        return subscription
+
+    period_end = datetime.fromisoformat(period_end_str)
+    period_start = datetime.fromisoformat(period_start_str)
+    now = datetime.now(timezone.utc)
+
+    if now < period_end:
+        return subscription
+
+    billing_cycle = subscription.get("billing_cycle", "monthly")
+    while period_end <= now:
+        period_start = period_end
+        period_end = _advance_period(period_start, billing_cycle)
+
+    update_fields = {
+        "current_period_start": period_start.isoformat(),
+        "current_period_end": period_end.isoformat(),
+        "hours_used": 0.0,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.subscriptions.update_one({"id": subscription["id"]}, {"$set": update_fields})
+    subscription.update(update_fields)
+    logger.info(f"Manual subscription {subscription['id']} cycle rolled over (anchored to {subscription.get('customer_email')}'s start date), hours reset to 0")
+    return subscription
 
 
 
@@ -850,6 +903,8 @@ async def create_work_log(data: WorkLogCreate, request: Request):
     if not subscription:
         raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
     
+    subscription = await ensure_manual_subscription_period_current(subscription)
+    
     hours_available = subscription.get("hours_included", 0) - subscription.get("hours_used", 0)
     
     if data.hours_spent > hours_available:
@@ -1030,6 +1085,7 @@ async def admin_list_subscriptions(request: Request, status: Optional[str] = Non
         query["status"] = status
     
     subscriptions = await db.subscriptions.find(query, {"_id": 0, "password_hash": 0}).sort("created_at", -1).to_list(200)
+    subscriptions = [await ensure_manual_subscription_period_current(s) for s in subscriptions]
     
     return {"subscriptions": subscriptions, "count": len(subscriptions)}
 
@@ -1053,7 +1109,7 @@ async def create_manual_customer(data: CreateManualCustomerRequest, request: Req
     hours = PLAN_HOURS.get(data.plan_id, 3)
     amount = PLAN_PRICING.get(data.plan_id, {}).get(data.billing_cycle, 0)
     period_start = datetime.now(timezone.utc)
-    period_end = period_start + timedelta(days=30 if data.billing_cycle == "monthly" else 365)
+    period_end = _advance_period(period_start, data.billing_cycle)
 
     sub_record = {
         "id": str(uuid.uuid4()),
@@ -1133,14 +1189,32 @@ async def edit_manual_customer(subscription_id: str, data: EditManualCustomerReq
     if data.plan_id is not None or data.billing_cycle is not None:
         update_fields["amount"] = PLAN_PRICING.get(plan_id, {}).get(billing_cycle, 0)
 
+    hours_reset_needed = False
+
     if data.subscription_start_date is not None:
         try:
             period_start = datetime.fromisoformat(data.subscription_start_date).replace(tzinfo=timezone.utc)
         except ValueError:
             raise HTTPException(status_code=400, detail="Data invalida. Use o formato AAAA-MM-DD")
-        period_end = period_start + timedelta(days=30 if billing_cycle == "monthly" else 365)
+        period_end = _advance_period(period_start, billing_cycle)
+        # Roll forward to the cycle that is currently active as of now, anchored
+        # to the (possibly backdated) start date - e.g. "cliente desde 15/10"
+        # with today being 20/12 should already land on the 15/12-15/01 cycle.
+        now = datetime.now(timezone.utc)
+        while period_end <= now:
+            period_start = period_end
+            period_end = _advance_period(period_start, billing_cycle)
         update_fields["current_period_start"] = period_start.isoformat()
         update_fields["current_period_end"] = period_end.isoformat()
+        hours_reset_needed = True
+    elif data.billing_cycle is not None:
+        # Billing cycle changed without a new start date: keep the existing
+        # anchor date but recompute the period length from it.
+        existing_start = datetime.fromisoformat(subscription["current_period_start"])
+        update_fields["current_period_end"] = _advance_period(existing_start, billing_cycle).isoformat()
+
+    if hours_reset_needed:
+        update_fields["hours_used"] = 0.0
 
     if not update_fields:
         raise HTTPException(status_code=400, detail="Nenhum dado para atualizar")
@@ -1152,6 +1226,77 @@ async def edit_manual_customer(subscription_id: str, data: EditManualCustomerReq
 
     updated = await db.subscriptions.find_one({"id": subscription_id}, {"_id": 0, "password_hash": 0})
     return {"success": True, "subscription": updated}
+
+@api_router.post("/connect/admin/invoices")
+async def create_manual_invoice(data: ManualInvoiceCreate, request: Request):
+    """Admin inserts a manual invoice for a client (payment received outside
+    Stripe, e.g. bank transfer/cash against an invoice the admin issued)."""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+
+    subscription = await db.subscriptions.find_one({"id": data.subscription_id}, {"_id": 0})
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+
+    try:
+        invoice_date = datetime.fromisoformat(data.invoice_date).replace(tzinfo=timezone.utc)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Data invalida. Use o formato AAAA-MM-DD")
+
+    invoice_record = {
+        "id": str(uuid.uuid4()),
+        "subscription_id": subscription["id"],
+        "stripe_invoice_id": None,
+        "customer_email": subscription["customer_email"],
+        "customer_name": subscription.get("customer_name"),
+        "plan_name": subscription.get("plan_name"),
+        "amount": data.amount,
+        "currency": data.currency,
+        "invoice_date": invoice_date.isoformat(),
+        "payment_status": data.payment_status,
+        "source": "manual",
+        "description": data.description,
+        "created_by_admin_id": session.get("staff_id"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    await db.invoices.insert_one(invoice_record)
+    logger.info(f"Manual invoice created by admin {session.get('staff_id')} for {subscription['customer_email']}: {data.amount} {data.currency}")
+
+    invoice_record.pop("_id", None)
+    return {"success": True, "invoice": invoice_record}
+
+@api_router.get("/connect/admin/invoices")
+async def list_invoices_admin(request: Request, subscription_id: Optional[str] = None):
+    """Admin lists invoices (Stripe + manual), optionally filtered by subscription"""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") != "ADMIN":
+        raise HTTPException(status_code=403, detail="Apenas admins")
+
+    query = {}
+    if subscription_id:
+        query["subscription_id"] = subscription_id
+
+    invoices = await db.invoices.find(query, {"_id": 0}).sort("invoice_date", -1).to_list(500)
+    return {"invoices": invoices}
+
+@api_router.get("/connect/customer/invoices")
+async def list_customer_invoices(request: Request):
+    """Logged-in customer sees all their invoices (Stripe + manual), ordered by date"""
+    session = await get_user_from_token(request)
+
+    if session.get("user_type") != "CUSTOMER":
+        raise HTTPException(status_code=403, detail="Apenas clientes")
+
+    invoices = await db.invoices.find(
+        {"customer_email": session.get("user_email")},
+        {"_id": 0}
+    ).sort("invoice_date", -1).to_list(200)
+
+    return {"invoices": invoices}
 
 @api_router.post("/connect/customer/change-password")
 async def change_customer_password(data: ChangeCustomerPasswordRequest, request: Request):
@@ -1410,6 +1555,8 @@ async def customer_dashboard(request: Request):
     
     if not subscription:
         return {"subscription": None, "service_requests": [], "work_logs": []}
+    
+    subscription = await ensure_manual_subscription_period_current(subscription)
     
     # Hours info
     hours_included = subscription.get("hours_included", 0)
@@ -2266,6 +2413,38 @@ async def stripe_webhook(request: Request):
             {"$set": update_data}
         )
         
+    elif event_type == "invoice.payment_succeeded":
+        # Records every Stripe subscription charge (first payment + each
+        # recurring renewal) as an invoice, so the customer sees a full
+        # month-by-month billing history alongside manually-entered invoices.
+        stripe_invoice_id = obj.get("id")
+        stripe_subscription_id = obj.get("subscription")
+        if stripe_subscription_id:
+            related_sub = await db.subscriptions.find_one({"stripe_subscription_id": stripe_subscription_id}, {"_id": 0})
+            if related_sub:
+                invoice_record = {
+                    "id": str(uuid.uuid4()),
+                    "subscription_id": related_sub["id"],
+                    "stripe_invoice_id": stripe_invoice_id,
+                    "customer_email": related_sub.get("customer_email"),
+                    "customer_name": related_sub.get("customer_name"),
+                    "plan_name": related_sub.get("plan_name"),
+                    "amount": (obj.get("amount_paid") or 0) / 100,
+                    "currency": (obj.get("currency") or "eur").upper(),
+                    "invoice_date": datetime.fromtimestamp(obj.get("created", datetime.now(timezone.utc).timestamp()), tz=timezone.utc).isoformat(),
+                    "payment_status": "paid",
+                    "source": "stripe",
+                    "description": None,
+                    "created_by_admin_id": None,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+                await db.invoices.update_one(
+                    {"stripe_invoice_id": stripe_invoice_id},
+                    {"$setOnInsert": invoice_record},
+                    upsert=True
+                )
+                logger.info(f"Stripe invoice recorded: {stripe_invoice_id} for {related_sub.get('customer_email')}")
+        
     elif event_type == "customer.subscription.deleted":
         subscription_id = obj.get("id")
         await db.subscriptions.update_one(
@@ -2316,6 +2495,7 @@ async def get_customer_subscriptions(email: str):
         {"customer_email": email, "status": {"$in": ["active", "past_due", "trialing"]}},
         {"_id": 0, "password_hash": 0}
     ).to_list(100)
+    subscriptions = [await ensure_manual_subscription_period_current(s) for s in subscriptions]
     
     return {"subscriptions": subscriptions}
 
@@ -2329,6 +2509,8 @@ async def get_subscription_details(subscription_id: str):
     
     if not sub:
         raise HTTPException(status_code=404, detail="Subscricao nao encontrada")
+    
+    sub = await ensure_manual_subscription_period_current(sub)
     
     # Get interventions for this subscription
     interventions = await db.interventions.find(
@@ -2473,6 +2655,9 @@ async def complete_intervention(intervention_id: str, hours_used: float):
     )
     
     # Update subscription hours
+    sub_for_reset = await db.subscriptions.find_one({"id": intervention.get("subscription_id")}, {"_id": 0})
+    if sub_for_reset:
+        await ensure_manual_subscription_period_current(sub_for_reset)
     await db.subscriptions.update_one(
         {"id": intervention.get("subscription_id")},
         {"$inc": {"hours_used": hours_used}}

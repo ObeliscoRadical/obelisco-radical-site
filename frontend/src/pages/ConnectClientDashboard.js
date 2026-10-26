@@ -29,6 +29,7 @@ const ConnectClientDashboard = () => {
     address: ''
   });
   const [submitting, setSubmitting] = useState(false);
+  const [invoices, setInvoices] = useState([]);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current_password: '', new_password: '', confirm_password: '' });
   const [passwordMsg, setPasswordMsg] = useState({ type: '', text: '' });
@@ -70,11 +71,14 @@ const ConnectClientDashboard = () => {
 
   const fetchDashboard = async () => {
     try {
-      const [meRes, dashRes] = await Promise.all([
+      const [meRes, dashRes, invoicesRes] = await Promise.all([
         fetch(`${BACKEND_URL}/api/connect/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch(`${BACKEND_URL}/api/connect/customer/dashboard`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(`${BACKEND_URL}/api/connect/customer/invoices`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -94,6 +98,10 @@ const ConnectClientDashboard = () => {
       
       setUser(userData);
       setDashboard(dashData);
+      if (invoicesRes.ok) {
+        const invoicesData = await invoicesRes.json();
+        setInvoices(invoicesData.invoices || []);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -467,37 +475,76 @@ const ConnectClientDashboard = () => {
         )}
 
         {activeTab === 'history' && (
-          <div className="bg-zinc-900 border border-zinc-800">
-            <div className="p-4 border-b border-zinc-800">
-              <h3 className="font-bold text-white">Historico de Intervencoes</h3>
-            </div>
-            {dashboard?.work_logs?.length === 0 ? (
-              <p className="text-zinc-500 text-center py-12">Nenhuma intervencao registada</p>
-            ) : (
-              <div className="divide-y divide-zinc-800">
-                {dashboard?.work_logs?.map(log => (
-                  <div key={log.id} className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <p className="text-white font-medium">{log.work_description}</p>
-                        <p className="text-xs text-zinc-400 mt-1">{log.notes || 'Sem notas adicionais'}</p>
-                      </div>
-                      <span className="text-[#FFD700] font-bold">-{log.hours_spent}h</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-zinc-500 mt-2">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {formatDate(log.created_at)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <User className="w-3 h-3" />
-                        {log.technician_name}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+          <div className="space-y-6">
+            <div className="bg-zinc-900 border border-zinc-800">
+              <div className="p-4 border-b border-zinc-800">
+                <h3 className="font-bold text-white">Historico de Intervencoes</h3>
               </div>
-            )}
+              {dashboard?.work_logs?.length === 0 ? (
+                <p className="text-zinc-500 text-center py-12">Nenhuma intervencao registada</p>
+              ) : (
+                <div className="divide-y divide-zinc-800">
+                  {dashboard?.work_logs?.map(log => (
+                    <div key={log.id} className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-white font-medium">{log.work_description}</p>
+                          <p className="text-xs text-zinc-400 mt-1">{log.notes || 'Sem notas adicionais'}</p>
+                        </div>
+                        <span className="text-[#FFD700] font-bold">-{log.hours_spent}h</span>
+                      </div>
+                      <div className="flex items-center gap-4 text-xs text-zinc-500 mt-2">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(log.created_at)}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          {log.technician_name}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Faturas - Stripe + Manual, same list ordered by date */}
+            <div className="bg-zinc-900 border border-zinc-800" data-testid="invoices-section">
+              <div className="p-4 border-b border-zinc-800">
+                <h3 className="font-bold text-white">Faturas</h3>
+              </div>
+              {invoices.length === 0 ? (
+                <p className="text-zinc-500 text-center py-12">Nenhuma fatura registada</p>
+              ) : (
+                <div className="divide-y divide-zinc-800">
+                  {invoices.map(inv => (
+                    <div key={inv.id} className="p-4 flex items-center justify-between" data-testid={`invoice-row-${inv.id}`}>
+                      <div>
+                        <p className="text-white font-medium">
+                          {inv.description || `Mensalidade ${inv.plan_name || ''}`}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-zinc-500 mt-1">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {formatDate(inv.invoice_date)}
+                          </span>
+                          <span className={`px-2 py-0.5 font-semibold ${
+                            inv.payment_status === 'paid' ? 'bg-green-500/20 text-green-300' :
+                            inv.payment_status === 'overdue' ? 'bg-red-500/20 text-red-300' :
+                            'bg-yellow-500/20 text-yellow-300'
+                          }`}>
+                            {inv.payment_status === 'paid' ? 'Pago' : inv.payment_status === 'overdue' ? 'Em atraso' : 'Pendente'}
+                          </span>
+                          <span className="text-zinc-600">{inv.source === 'stripe' ? 'Stripe' : 'Fatura Manual'}</span>
+                        </div>
+                      </div>
+                      <span className="text-[#FFD700] font-bold">{inv.amount?.toFixed(2)} {inv.currency}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

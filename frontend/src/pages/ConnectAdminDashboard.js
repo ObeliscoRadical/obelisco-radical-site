@@ -35,6 +35,7 @@ const ConnectAdminDashboard = () => {
   const [showNewClient, setShowNewClient] = useState(false);
   const [newClientCredentials, setNewClientCredentials] = useState(null);
   const [showEditClient, setShowEditClient] = useState(null);
+  const [showNewInvoice, setShowNewInvoice] = useState(null);
   const [showAssign, setShowAssign] = useState(null);
   const [showAdjust, setShowAdjust] = useState(null);
   
@@ -42,6 +43,7 @@ const ConnectAdminDashboard = () => {
   const [techForm, setTechForm] = useState({ name: '', email: '', password: '' });
   const [clientForm, setClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly' });
   const [editClientForm, setEditClientForm] = useState({ name: '', email: '', phone: '', plan_id: 'essencial', billing_cycle: 'monthly', subscription_start_date: '' });
+  const [invoiceForm, setInvoiceForm] = useState({ subscription_id: '', amount: '', invoice_date: '', payment_status: 'paid', description: '' });
   const [adjustForm, setAdjustForm] = useState({ hours: 0, reason: '' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -233,6 +235,36 @@ const ConnectAdminDashboard = () => {
       }
 
       setShowEditClient(null);
+      fetchAll();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleCreateInvoice = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/connect/admin/invoices`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ ...invoiceForm, amount: parseFloat(invoiceForm.amount) })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.detail || 'Erro ao criar fatura');
+      }
+
+      setShowNewInvoice(null);
       fetchAll();
     } catch (err) {
       setError(err.message);
@@ -881,6 +913,13 @@ const ConnectAdminDashboard = () => {
                               Editar
                             </button>
                           )}
+                          <button
+                            onClick={() => { setInvoiceForm({ subscription_id: sub.id, amount: sub.amount || '', invoice_date: new Date().toISOString().slice(0, 10), payment_status: 'paid', description: '' }); setShowNewInvoice(sub); }}
+                            className="text-green-400 text-sm hover:underline ml-3"
+                            data-testid={`new-invoice-btn-${sub.id}`}
+                          >
+                            + Fatura
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -1199,6 +1238,76 @@ const ConnectAdminDashboard = () => {
               >
                 {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                 Guardar Alteracoes
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Invoice Modal */}
+      {showNewInvoice && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setShowNewInvoice(null)}>
+          <div className="bg-zinc-900 border border-zinc-800 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4 border-b border-zinc-800 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Nova Fatura - {showNewInvoice.customer_name}</h3>
+              <button onClick={() => setShowNewInvoice(null)} className="text-zinc-400"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleCreateInvoice} className="p-4 space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Data da Fatura *</label>
+                <input
+                  type="date"
+                  value={invoiceForm.invoice_date}
+                  onChange={e => setInvoiceForm({...invoiceForm, invoice_date: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="invoice-date"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Valor (EUR) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={invoiceForm.amount}
+                  onChange={e => setInvoiceForm({...invoiceForm, amount: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  required
+                  data-testid="invoice-amount"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Estado do Pagamento *</label>
+                <select
+                  value={invoiceForm.payment_status}
+                  onChange={e => setInvoiceForm({...invoiceForm, payment_status: e.target.value})}
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="invoice-status"
+                >
+                  <option value="paid">Pago</option>
+                  <option value="pending">Pendente</option>
+                  <option value="overdue">Em atraso</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 uppercase mb-2">Descricao (opcional)</label>
+                <input
+                  type="text"
+                  value={invoiceForm.description}
+                  onChange={e => setInvoiceForm({...invoiceForm, description: e.target.value})}
+                  placeholder="Ex: Mensalidade Outubro"
+                  className="w-full bg-zinc-800 border border-zinc-700 text-white px-4 py-3"
+                  data-testid="invoice-description"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#FFD700] text-black font-bold py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+                data-testid="submit-invoice"
+              >
+                {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                Criar Fatura
               </button>
             </form>
           </div>
