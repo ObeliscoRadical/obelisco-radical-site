@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Diagnóstico Técnico B2B & Condomínios | Obelisco Care — Grande Lisboa</title>
+  <meta name="description" content="Descubra em 60 segundos o risco de paragem elétrica da sua empresa ou condomínio na Grande Lisboa e o plano preventivo Obelisco Care ideal com SLA prioritário até 8h úteis.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Oswald:wght@600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --bg-deep: #050507;
+      --surface: #141418;
+      --surface-2: #18181b;
+      --elevated: #27272a;
+      --border: #27272a;
+      --border-input: #3f3f46;
+      --gold: #facc15;
+      --gold-hover: #fde047;
+      --gold-strong: #eab308;
+      --gold-soft: rgba(250, 204, 21, 0.10);
+      --gold-glow: rgba(250, 204, 21, 0.24);
+      --green: #22c55e;
+      --green-dark: #16a34a;
+      --green-soft: rgba(34, 197, 94, 0.12);
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --red-soft: rgba(239, 68, 68, 0.12);
+      --text: #ffffff;
+      --text-body: #e4e4e7;
+      --muted: #a1a1aa;
+      --subtle: #71717a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background: radial-gradient(circle at 50% 0%, rgba(250, 204, 21, 0.07) 0%, rgba(9, 9, 11, 0) 52%), var(--bg);
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .topbar {
+      background: linear-gradient(90deg, #facc15, #eab308);
+      color: #09090b;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 8px 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    header.navbar {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(9, 9, 11, 0.90);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-inner {
+      max-width: 920px;
+      margin: 0 auto;
+      padding: 13px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+      color: #fff;
+      font-weight: 900;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      background: var(--gold-soft);
+      border: 1px solid rgba(250, 204, 21, 0.35);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--gold);
+      flex-shrink: 0;
+    }
+
+    .brand-badge {
+      background: var(--gold);
+      color: #09090b;
+      font-size: 10.5px;
+      font-weight: 900;
+      padding: 2px 7px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pill-time {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text-body);
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+    }
+
+    .link-site {
+      color: var(--muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      padding: 6px 11px;
+      border-radius: 8px;
+      transition: all 0.15s;
+    }
+
+    .link-site:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    main.container {
+      width: 100%;
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 28px 18px 56px;
+      flex: 1;
+    }
+
+    /* Hero header above Quiz */
+    .quiz-hero {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--gold-soft);
+      border: 1px solid rgba(250, 204, 21, 0.30);
+      color: var(--gold);
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 5px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    .quiz-hero h1 {
+      font-family: 'Inter', sans-serif;
+      font-size: clamp(23px, 4.3vw, 34px);
+      font-weight: 900;
+      line-height: 1.15;
+      letter-spacing: -0.025em;
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .quiz-hero h1 span.accent {
+      color: var(--gold);
+    }
+
+    .quiz-hero p {
+      color: var(--muted);
+      font-size: clamp(14px, 2.2vw, 15.5px);
+      max-width: 620px;
+      margin: 0 auto;
+    }
+
+    /* Progress Bar */
+    .progress-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 9px;
+    }
+
+    .progress-meta strong {
+      color: var(--gold);
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: var(--elevated);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 16.66%;
+      background: linear-gradient(90deg, var(--gold-strong), var(--gold));
+      border-radius: 999px;
+      transition: width 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Question Card */
+    .quiz-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: clamp(20px, 4vw, 32px);
+      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.45);
+      animation: fadeSlide 0.26s ease-out;
+    }
+
+    @keyframes fadeSlide {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .q-category {
+      font-size: 11.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--gold);
+      margin-bottom: 6px;
+    }
+
+    .q-title {
+      font-size: clamp(18px, 3vw, 22px);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.28;
+      margin-bottom: 6px;
+    }
+
+    .q-helper {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .options-list {
+      display: grid;
+      gap: 11px;
+    }
+
+    .option-btn {
+      width: 100%;
+      text-align: left;
+      background: var(--bg);
+      border: 1.5px solid var(--border-input);
+      border-radius: 14px;
+      padding: 15px 16px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: all 0.16s ease;
+      font-family: inherit;
+    }
+
+    .option-btn:hover {
+      border-color: var(--gold);
+      background: rgba(250, 204, 21, 0.05);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(250, 204, 21, 0.09);
+    }
+
+    .option-btn.selected {
+      border-color: var(--gold);
+      background: rgba(250, 204, 21, 0.10);
+      box-shadow: 0 0 0 1px var(--gold);
+    }
+
+    .opt-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .option-btn:hover .opt-icon,
+    .option-btn.selected .opt-icon {
+      border-color: rgba(250, 204, 21, 0.5);
+      background: var(--gold-soft);
+    }
+
+    .opt-body {
+      flex: 1;
+    }
+
+    .opt-title {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+
+    .opt-desc {
+      display: block;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .opt-arrow {
+      color: var(--subtle);
+      font-size: 18px;
+      font-weight: 700;
+      align-self: center;
+      transition: transform 0.15s, color 0.15s;
+    }
+
+    .option-btn:hover .opt-arrow {
+      color: var(--gold);
+      transform: translateX(3px);
+    }
+
+    .card-footer-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .btn-back {
+      background: transparent;
+      border: 1px solid var(--border-input);
+      color: var(--muted);
+      padding: 8px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .btn-back:hover {
+      color: #fff;
+      border-color: var(--muted);
+    }
+
+    .trust-mini {
+      font-size: 12px;
+      color: var(--subtle);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Analyzing Screen */
+    .analyzing-view {
+      display: none;
+      text-align: center;
+      padding: 40px 24px;
+    }
+
+    .spinner-ring {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      border: 4px solid var(--elevated);
+      border-top-color: var(--gold);
+      margin: 0 auto 20px;
+      animation: spin 0.85s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .check-steps {
+      max-width: 440px;
+      margin: 22px auto 0;
+      text-align: left;
+      display: grid;
+      gap: 10px;
+    }
+
+    .check-step {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 11px 14px;
+      font-size: 13.5px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.25s;
+    }
+
+    .check-step.done {
+      border-color: rgba(34, 197, 94, 0.4);
+      color: #fff;
+      background: rgba(34, 197, 94, 0.06);
+    }
+
+    .check-step .dot-status {
+      font-weight: 900;
+      color: var(--gold);
+    }
+
+    .check-step.done .dot-status {
+      color: var(--green);
+    }
+
+    /* Result View */
+    #resultView {
+      display: none;
+      animation: fadeSlide 0.35s ease-out;
+    }
+
+    .result-banner {
+      background: linear-gradient(145deg, rgba(250, 204, 21, 0.12), rgba(24, 24, 27, 0.95));
+      border: 1px solid rgba(250, 204, 21, 0.40);
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+
+    .result-top-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .risk-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 5px 12px;
+      border-radius: 999px;
+    }
+
+    .risk-badge.critico {
+      background: var(--red-soft);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.45);
+    }
+
+    .risk-badge.moderado {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fcd34d;
+      border: 1px solid rgba(245, 158, 11, 0.45);
+    }
+
+    .risk-badge.controlado {
+      background: var(--green-soft);
+      color: #86efac;
+      border: 1px solid rgba(34, 197, 94, 0.45);
+    }
+
+    .zone-pill {
+      font-size: 12px;
+      font-weight: 700;
+      color: #86efac;
+      background: rgba(34, 197, 94, 0.10);
+      border: 1px solid rgba(34, 197, 94, 0.30);
+      padding: 4px 11px;
+      border-radius: 999px;
+    }
+
+    .result-banner h2 {
+      font-size: clamp(21px, 3.6vw, 28px);
+      font-weight: 900;
+      line-height: 1.2;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .result-banner p.diag-summary {
+      color: var(--text-body);
+      font-size: 14.5px;
+      line-height: 1.55;
+    }
+
+    /* 3 KPI Metrics */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 640px) {
+      .kpi-grid {
+        grid-template-columns: 1fr;
+      }
+      .link-site {
+        display: none;
+      }
+    }
+
+    .kpi-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 15px;
+      padding: 16px;
+    }
+
+    .kpi-label {
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .kpi-val {
+      font-size: 24px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+
+    .kpi-val.loss { color: #f87171; }
+    .kpi-val.save { color: #4ade80; }
+    .kpi-val.score { color: var(--gold); }
+
+    .kpi-sub {
+      font-size: 12px;
+      color: var(--subtle);
+      line-height: 1.35;
+    }
+
+    /* Billing Switcher */
+    .billing-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+
+    .billing-bar-label {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text-body);
+    }
+
+    .billing-toggle {
+      display: inline-flex;
+      background: var(--bg);
+      border: 1px solid var(--border-input);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 4px;
+    }
+
+    .billing-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 12.5px;
+      font-weight: 700;
+      padding: 7px 12px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .billing-btn.active {
+      background: var(--gold);
+      color: #09090b;
+      font-weight: 800;
+    }
+
+    /* Recommended Plan Card */
+    .rec-plan-card {
+      background: var(--surface-2);
+      border: 2px solid var(--gold);
+      border-radius: 20px;
+      padding: clamp(20px, 4vw, 28px);
+      position: relative;
+      box-shadow: 0 18px 40px rgba(250, 204, 21, 0.10);
+      margin-bottom: 18px;
+    }
+
+    .rec-ribbon {
+      display: inline-block;
+      background: var(--gold);
+      color: #09090b;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 12px;
+      border-radius: 999px;
+      margin-bottom: 12px;
+    }
+
+    .rec-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 14px;
+      padding-bottom: 18px;
+      margin-bottom: 18px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .rec-plan-title {
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      line-height: 1.1;
+    }
+
+    .rec-plan-sub {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .rec-price-block {
+      text-align: right;
+    }
+
+    @media (max-width: 560px) {
+      .rec-price-block {
+        text-align: left;
+      }
+    }
+
+    .rec-price {
+      font-size: 34px;
+      font-weight: 900;
+      color: var(--gold);
+      line-height: 1;
+    }
+
+    .rec-price small {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .rec-vat {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .rec-save-tag {
+      font-size: 12.5px;
+      font-weight: 800;
+      color: #4ade80;
+      margin-top: 4px;
+    }
+
+    .rec-features {
+      list-style: none;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px 18px;
+      margin-bottom: 22px;
+    }
+
+    @media (max-width: 600px) {
+      .rec-features {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .rec-features li {
+      font-size: 13.5px;
+      color: var(--text-body);
+      display: flex;
+      align-items: flex-start;
+      gap: 9px;
+    }
+
+    .rec-features li .chk {
+      color: var(--gold);
+      font-weight: 900;
+      flex-shrink: 0;
+    }
+
+    /* Lead Personalization Box */
+    .lead-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 18px;
+    }
+
+    .lead-box-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .lead-box-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .lead-inputs {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+    }
+
+    @media (max-width: 640px) {
+      .lead-inputs {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .lead-inputs input {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border-input);
+      border-radius: 10px;
+      padding: 11px 12px;
+      color: #fff;
+      font-size: 13.5px;
+      font-family: inherit;
+    }
+
+    .lead-inputs input:focus {
+      outline: none;
+      border-color: var(--gold);
+    }
+
+    /* Dual CTAs */
+    .cta-stack {
+      display: grid;
+      gap: 11px;
+    }
+
+    .btn-whatsapp-main {
+      width: 100%;
+      background: var(--gold);
+      color: #09090b;
+      border: none;
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 15.5px;
+      font-weight: 900;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-decoration: none;
+      font-family: inherit;
+      box-shadow: 0 10px 25px var(--gold-glow);
+      transition: all 0.16s;
+    }
+
+    .btn-whatsapp-main:hover {
+      background: var(--gold-hover);
+      transform: translateY(-1px);
+    }
+
+    .btn-stripe-sec {
+      width: 100%;
+      background: transparent;
+      color: #fff;
+      border: 1.5px solid var(--border-input);
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      text-decoration: none;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+
+    .btn-stripe-sec:hover {
+      border-color: var(--gold);
+      color: var(--gold);
+    }
+
+    .cta-microcopy {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 10px;
+    }
+
+    /* Alternative Tiers Switcher */
+    .other-tiers-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+
+    .other-tiers-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .tier-pills {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    @media (max-width: 560px) {
+      .tier-pills {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .tier-pill-btn {
+      background: var(--bg);
+      border: 1px solid var(--border-input);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--text-body);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.15s;
+    }
+
+    .tier-pill-btn:hover {
+      border-color: var(--gold);
+    }
+
+    .tier-pill-btn.active {
+      border-color: var(--gold);
+      background: var(--gold-soft);
+      color: #fff;
+    }
+
+    .tier-pill-btn span {
+      display: block;
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .restart-row {
+      text-align: center;
+      margin-top: 16px;
+    }
+
+    .btn-restart {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: underline;
+      cursor: pointer;
+      font-family: inherit;
+    }
+
+    .btn-restart:hover {
+      color: var(--gold);
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 22px 18px;
+      text-align: center;
+      font-size: 12.5px;
+      color: var(--subtle);
+    }
+
+    footer a {
+      color: var(--gold);
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="topbar">
+    ⚡ Diagnóstico Técnico B2B & Condomínios • Grande Lisboa • Deslocação 100% Incluída
+  </div>
+
+  <header class="navbar">
+    <div class="nav-inner">
+      <a href="https://obeliscoradical.pt" class="brand" target="_blank" rel="noopener">
+        <span class="brand-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+          </svg>
+        </span>
+        <span>Obelisco Radical</span>
+        <span class="brand-badge">Care</span>
+      </a>
+      <div class="nav-right">
+        <span class="pill-time"><span class="pill-dot"></span> Diagnóstico 60s</span>
+        <a href="https://obeliscoradical.pt/connect" class="link-site" target="_blank" rel="noopener">Portal Connect</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Quiz View -->
+    <div id="quizFlowView">
+      <div class="quiz-hero">
+        <div class="eyebrow" id="heroEyebrow">⚡ Simulador Oficial de Continuidade Operacional</div>
+        <h1 id="heroTitle">Quanto Custa <span class="accent">1 Paragem Elétrica</span> na Sua Empresa ou Condomínio?</h1>
+        <p id="heroSubtitle">Responda a 6 perguntas rápidas para calcular o seu risco operacional e descobrir o plano preventivo <strong>Obelisco Care</strong> ideal na Grande Lisboa.</p>
+      </div>
+
+      <div class="progress-wrap">
+        <div class="progress-meta">
+          <span id="stepCounterText">Pergunta <strong>1 de 6</strong></span>
+          <span id="stepPercentText">17% concluído</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <div class="quiz-card" id="questionCard">
+        <div class="q-category" id="qCategory">Perfil do Espaço</div>
+        <h2 class="q-title" id="qTitle"></h2>
+        <p class="q-helper" id="qHelper"></p>
+
+        <div class="options-list" id="optionsList"></div>
+
+        <div class="card-footer-nav">
+          <button type="button" class="btn-back" id="btnBack" onclick="prevQuestion()" style="visibility:hidden;">
+            ← Anterior
+          </button>
+          <span class="trust-mini">🔒 Sem compromisso • Engenharia certificada DGEG</span>
+        </div>
+      </div>
+
+      <!-- Analyzing View -->
+      <div class="quiz-card analyzing-view" id="analyzingView">
+        <div class="spinner-ring"></div>
+        <h2 class="q-title">A processar o diagnóstico técnico do seu espaço...</h2>
+        <p class="q-helper" style="margin-bottom:0;">A cruzar dimensão, sistemas instalados e SLA recomendado na Grande Lisboa.</p>
+        <div class="check-steps">
+          <div class="check-step" id="chk1"><span class="dot-status">●</span> A calcular Índice de Criticidade Elétrica e ITED/CCTV...</div>
+          <div class="check-step" id="chk2"><span class="dot-status">●</span> A estimar custo de paragem não prevenida vs. prevenção...</div>
+          <div class="check-step" id="chk3"><span class="dot-status">●</span> A validar cobertura prioritária e deslocação gratuita...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Result View -->
+    <div id="resultView">
+      <div class="result-banner">
+        <div class="result-top-row">
+          <span class="risk-badge moderado" id="resRiskBadge">Risco Operacional Moderado-Alto</span>
+          <span class="zone-pill" id="resZonePill">✓ Deslocação Gratuita Confirmada</span>
+        </div>
+        <h2 id="resHeadline">Diagnóstico Concluído: A Sua Operação Beneficia de Prevenção com SLA Garantido</h2>
+        <p class="diag-summary" id="resDiagnosisText"></p>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-box">
+          <div class="kpi-label">Índice de Criticidade</div>
+          <div class="kpi-val score" id="kpiScore">68 / 100</div>
+          <div class="kpi-sub" id="kpiScoreSub">Exposição técnica calculada pelos sistemas e SLA exigido</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">Custo Est. de 1 Paragem</div>
+          <div class="kpi-val loss" id="kpiLoss">2.330 €</div>
+          <div class="kpi-sub">Operação afetada + chamada técnica urgente avulsa (75€/h)</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-label">Retorno / Proteção Anual</div>
+          <div class="kpi-val save" id="kpiRoi">+1.398 €</div>
+          <div class="kpi-sub" id="kpiRoiSub">Economia direta evitando avarias + 2 meses grátis no anual</div>
+        </div>
+      </div>
+
+      <div class="billing-bar">
+        <span class="billing-bar-label">Modalidade de faturação (+ IVA 23%):</span>
+        <div class="billing-toggle">
+          <button type="button" class="billing-btn active" id="toggleMensal" onclick="setResultBilling('mensal')">Mensal (Sem fidelização)</button>
+          <button type="button" class="billing-btn" id="toggleAnual" onclick="setResultBilling('anual')">Anual (-2 Meses Grátis)</button>
+        </div>
+      </div>
+
+      <div class="rec-plan-card">
+        <span class="rec-ribbon" id="recRibbon">★ Plano Recomendado Pelo Seu Diagnóstico</span>
+        <div class="rec-header">
+          <div>
+            <div class="rec-plan-title" id="recPlanName">Obelisco Care Preventivo</div>
+            <div class="rec-plan-sub" id="recPlanTagline">Prevenção programada que evita custos e paragens</div>
+          </div>
+          <div class="rec-price-block">
+            <div class="rec-price" id="recPlanPrice">699 €<small>/mês</small></div>
+            <div class="rec-vat">Acresce IVA à taxa legal (23%)</div>
+            <div class="rec-save-tag" id="recSaveTag" style="display:none;">Poupa 1.398 € com 2 meses grátis</div>
+          </div>
+        </div>
+
+        <ul class="rec-features" id="recFeaturesList"></ul>
+
+        <div class="lead-box">
+          <div class="lead-box-title">Identifique o seu espaço para enviarmos o diagnóstico completo (opcional):</div>
+          <div class="lead-box-sub">Estes dados entram automaticamente no pedido de contacto técnico via WhatsApp.</div>
+          <div class="lead-inputs">
+            <input type="text" id="leadName" placeholder="O seu nome" oninput="refreshCtaLinks()">
+            <input type="text" id="leadCompany" placeholder="Empresa ou Condomínio" oninput="refreshCtaLinks()">
+            <input type="tel" id="leadPhone" placeholder="Telemóvel / WhatsApp" oninput="refreshCtaLinks()">
+          </div>
+        </div>
+
+        <div class="cta-stack">
+          <a href="#" id="btnWhatsappCta" target="_blank" rel="noopener" class="btn-whatsapp-main">
+            <span>💬 Receber Diagnóstico & Validar Plano no WhatsApp</span>
+          </a>
+          <a href="https://obeliscoradical.pt/" id="btnSiteCta" target="_blank" rel="noopener" class="btn-stripe-sec">
+            <span>⚡ Subscrever Diretamente Online em obeliscoradical.pt →</span>
+          </a>
+        </div>
+        <div class="cta-microcopy">
+          Equipa própria na Grande Lisboa • Único parceiro para Eletricidade, ITED, CCTV e Intrusão • Portal Obelisco Connect incluído
+        </div>
+      </div>
+
+      <div class="other-tiers-box">
+        <div class="other-tiers-title">Quer comparar com os outros escalões Obelisco Care? Clique para alternar:</div>
+        <div class="tier-pills">
+          <button type="button" class="tier-pill-btn" id="pill-Essencial" onclick="switchDisplayedTier('Essencial')">
+            Essencial • 349 €/mês
+            <span>SLA 48h • 3h/mês incluídas</span>
+          </button>
+          <button type="button" class="tier-pill-btn" id="pill-Preventivo" onclick="switchDisplayedTier('Preventivo')">
+            Preventivo • 699 €/mês
+            <span>SLA 24h • 6h/mês incluídas</span>
+          </button>
+          <button type="button" class="tier-pill-btn" id="pill-Total" onclick="switchDisplayedTier('Total')">
+            Total • 1.290 €/mês
+            <span>SLA 8h • 12h/mês + 8 visitas/ano</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="restart-row">
+        <button type="button" class="btn-restart" onclick="restartQuiz()">↺ Refazer diagnóstico com outras respostas</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p><strong>Obelisco Radical — Engenharia Elétrica, Telecomunicações (ITED), CCTV & Manutenção Técnica</strong></p>
+    <p style="margin-top:5px;">Grande Lisboa (Lisboa, Cascais, Oeiras, Loures, Odivelas, Sintra) • WhatsApp: <a href="https://wa.me/351911132401" target="_blank" rel="noopener">+351 911 132 401</a> • <a href="https://obeliscoradical.pt" target="_blank" rel="noopener">obeliscoradical.pt</a></p>
+  </footer>
+
+  <script>
+    var PLANS = {
+      Essencial: {
+        name: 'Obelisco Care Essencial',
+        shortName: 'Essencial',
+        tagline: 'Suporte técnico previsível para o dia a dia de lojas, clínicas e escritórios',
+        monthlyEur: 349,
+        annualEur: 3490,
+        annualSavingsEur: 698,
+        slaHours: 48,
+        includedHours: 3,
+        features: [
+          'Até 3 horas/mês de intervenção técnica incluídas',
+          'Prioridade de resposta garantida até 48h úteis',
+          'Deslocação 100% gratuita na Grande Lisboa',
+          '1 visita preventiva semestral programada',
+          'Relatório técnico semestral no Portal Obelisco Connect',
+          'Apoio telefónico, diagnóstico remoto e 5% desc. em horas extra'
+        ]
+      },
+      Preventivo: {
+        name: 'Obelisco Care Preventivo',
+        shortName: 'Preventivo',
+        tagline: 'Prevenção ativa que elimina disparos, avarias caras e paragens operacionais',
+        monthlyEur: 699,
+        annualEur: 6990,
+        annualSavingsEur: 1398,
+        slaHours: 24,
+        includedHours: 6,
+        features: [
+          'Até 6 horas/mês de intervenção técnica incluídas',
+          'Prioridade de resposta garantida até 24h úteis',
+          'Deslocação 100% gratuita na Grande Lisboa',
+          '2 visitas preventivas anuais + manutenção programada',
+          'Relatório técnico trimestral no Portal Obelisco Connect',
+          'Cobertura Eletricidade + ITED/CCTV e 10% desc. em horas extra'
+        ]
+      },
+      Total: {
+        name: 'Obelisco Care Total',
+        shortName: 'Total',
+        tagline: 'Blindagem operacional máxima para condomínios, edifícios e operações críticas',
+        monthlyEur: 1290,
+        annualEur: 12900,
+        annualSavingsEur: 2580,
+        slaHours: 8,
+        includedHours: 12,
+        features: [
+          'Até 12 horas/mês de intervenção técnica incluídas',
+          'SLA ultra-prioritário: resposta até 8 horas úteis',
+          'Deslocação 100% gratuita na Grande Lisboa',
+          '2 visitas preventivas por trimestre (8 visitas/ano)',
+          'Relatório técnico mensal detalhado para direção/condóminos',
+          'Consultoria técnica, melhorias contínuas e 15% desc. em horas extra'
+        ]
+      }
+    };
+
+    var QUESTIONS = [
+      {
+        id: 'sector',
+        category: '1. Perfil do Espaço',
+        title: 'Que tipo de espaço ou operação gere atualmente?',
+        helper: 'Isto permite estimar o impacto real de uma falha técnica ou elétrica no seu dia a dia.',
+        options: [
+          {
+            value: 'condominio',
+            label: 'Condomínio Residencial ou Edifício Comercial',
+            desc: 'Quadros comuns, iluminação de emergência, vídeo-porteiro, portões, CCTV e carregadores EV.',
+            icon: '🏢',
+            sectorWeight: 18,
+            hourlyCost: 195
+          },
+          {
+            value: 'restauracao',
+            label: 'Restauração, Supermercado ou Retalho Alimentar',
+            desc: 'Arcas frigoríficas, extração, cozinha e faturação que não podem parar a meio do turno.',
+            icon: '🍽️',
+            sectorWeight: 25,
+            hourlyCost: 310
+          },
+          {
+            value: 'clinica',
+            label: 'Clínica, Escritório, Loja ou Serviços PME',
+            desc: 'Consultórios, postos de trabalho, climatização, iluminação LED e rede informática ITED.',
+            icon: '🏥',
+            sectorWeight: 20,
+            hourlyCost: 220
+          },
+          {
+            value: 'industria',
+            label: 'Hotelaria / AL, Armazém ou Operação Crítica',
+            desc: 'Operação intensiva onde qualquer falha técnica gera reclamações imediatas ou paragem.',
+            icon: '⚡',
+            sectorWeight: 32,
+            hourlyCost: 420
+          }
+        ]
+      },
+      {
+        id: 'scale',
+        category: '2. Dimensão da Infraestrutura',
+        title: 'Qual é a dimensão aproximada da instalação técnica?',
+        helper: 'Selecione a opção mais próxima da estrutura atual do seu imóvel ou empresa.',
+        options: [
+          {
+            value: 'small',
+            label: 'Pequena dimensão (1 quadro principal)',
+            desc: 'Loja, escritório compacto ou fração única até ~180 m².',
+            icon: '🔌',
+            scaleWeight: 10
+          },
+          {
+            value: 'medium',
+            label: 'Média dimensão (2 a 4 quadros / áreas comuns)',
+            desc: 'Edifício médio, restaurante/clínica ampla ou condomínio até ~30 frações.',
+            icon: '🛠️',
+            scaleWeight: 24
+          },
+          {
+            value: 'large',
+            label: 'Grande dimensão (Múltiplos pisos, garagem ou alta potência)',
+            desc: 'Grande condomínio, edifício empresarial, várias lojas ou sistemas exigentes.',
+            icon: '🏗️',
+            scaleWeight: 38
+          }
+        ]
+      },
+      {
+        id: 'systems',
+        category: '3. Sistemas Integrados',
+        title: 'Que sistemas precisam de assistência num único parceiro?',
+        helper: 'A Obelisco Radical cobre Eletricidade, Telecomunicações (ITED), CCTV, Intrusão e Mobilidade Elétrica.',
+        options: [
+          {
+            value: 1,
+            label: 'Apenas Eletricidade, Quadros e Iluminação LED',
+            desc: 'Manutenção elétrica, tomadas, disjuntores, iluminação interior/emergência e DGEG.',
+            icon: '💡',
+            systemsCount: 1
+          },
+          {
+            value: 2,
+            label: 'Eletricidade + Rede ITED ou Carregadores EV (Wallbox)',
+            desc: 'Energia aliada a cablagem estruturada/fibra ou carregamento de viaturas elétricas.',
+            icon: '🔋',
+            systemsCount: 2
+          },
+          {
+            value: 4,
+            label: 'Cobertura Completa: Eletricidade + ITED + CCTV + Intrusão',
+            desc: 'Centralizar toda a infraestrutura técnica num só contrato, sem jogo de empurra entre técnicos.',
+            icon: '🛡️',
+            systemsCount: 4
+          }
+        ]
+      },
+      {
+        id: 'history',
+        category: '4. Sinais de Alerta nos Últimos 12 Meses',
+        title: 'Como tem funcionado a manutenção nos últimos meses?',
+        helper: 'Identifique o cenário que melhor descreve os problemas atuais.',
+        options: [
+          {
+            value: 'low',
+            label: 'Sem avarias graves — queremos prevenção e custos previsíveis',
+            desc: 'Evitar surpresas, cumprir normas DGEG e ter relatórios técnicos em dia.',
+            icon: '✅',
+            historyWeight: 8
+          },
+          {
+            value: 'med',
+            label: 'Disjuntores a disparar, cabos quentes ou pequenas falhas repetidas',
+            desc: 'Sinais de sobrecarga ou desgaste que exigem revisão preventiva antes que piorem.',
+            icon: '⚠️',
+            historyWeight: 20
+          },
+          {
+            value: 'high',
+            label: 'Avarias frequentes ou técnicos avulsos que demoram dias a aparecer',
+            desc: 'Custos imprevisíveis de urgência e falta de um parceiro técnico com resposta garantida.',
+            icon: '🚨',
+            historyWeight: 32
+          }
+        ]
+      },
+      {
+        id: 'sla',
+        category: '5. Prioridade de Resposta (SLA)',
+        title: 'Se surgir uma falha num dia útil, quanto tempo pode aguardar?',
+        helper: 'Os contratos Obelisco Care garantem prioridade contratual de chegada face a pedidos avulsos.',
+        options: [
+          {
+            value: 48,
+            label: 'Até 48 horas úteis são suficientes',
+            desc: 'Para intervenções planeadas e avarias não impeditivas da atividade.',
+            icon: '⏱️',
+            expectedHours: 7
+          },
+          {
+            value: 24,
+            label: 'No máximo até 24 horas úteis',
+            desc: 'Importante resolver até ao dia útil seguinte para não penalizar clientes ou condóminos.',
+            icon: '⚡',
+            expectedHours: 12
+          },
+          {
+            value: 8,
+            label: 'Operação crítica: resposta prioritária até 8 horas úteis',
+            desc: 'Precisamos de intervenção no próprio turno/dia útil para evitar prejuízos elevados.',
+            icon: '🔥',
+            expectedHours: 18
+          }
+        ]
+      },
+      {
+        id: 'zone',
+        category: '6. Localização do Espaço',
+        title: 'Em que zona se encontra o imóvel ou empresa?',
+        helper: 'Nos planos Obelisco Care, a taxa de deslocação (35€/chamada avulsa) é 100% gratuita na Grande Lisboa.',
+        options: [
+          {
+            value: 'Lisboa (Concelho)',
+            label: 'Lisboa (Centro, Parque das Nações, Benfica, Lumiar, Belém, etc.)',
+            desc: 'Cobertura total com deslocação gratuita incluída.',
+            icon: '📍',
+            freeTravel: true
+          },
+          {
+            value: 'Cascais / Oeiras / Sintra',
+            label: 'Linha de Cascais, Oeiras ou Sintra',
+            desc: 'Cobertura total com deslocação gratuita incluída.',
+            icon: '🌊',
+            freeTravel: true
+          },
+          {
+            value: 'Loures / Odivelas / Amadora',
+            label: 'Loures, Odivelas, Amadora ou Vila Franca',
+            desc: 'Cobertura total com deslocação gratuita incluída.',
+            icon: '🏙️',
+            freeTravel: true
+          },
+          {
+            value: 'Grande Lisboa / Margem Sul',
+            label: 'Margem Sul (Almada, Seixal, Montijo) ou arredores',
+            desc: 'Validação rápida da equipa técnica para cobertura contratual.',
+            icon: '🌉',
+            freeTravel: true
+          }
+        ]
+      }
+    ];
+
+    var currentStep = 0;
+    var answers = {};
+    var calculatedResult = null;
+    var displayedTier = 'Preventivo';
+    var currentBillingMode = 'mensal';
+
+    // Dynamic copy adaptation from Meta Ads URL parameter (?angulo=...)
+    (function adaptFromUrlAngle() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        var angulo = params.get('angulo');
+        if (angulo === 'condominios_b2b') {
+          document.getElementById('heroEyebrow').textContent = '🏢 Diagnóstico Técnico para Condomínios e Edifícios';
+          document.getElementById('heroTitle').innerHTML = 'Centralize <span class="accent">Eletricidade, ITED, CCTV e EV</span> do Seu Edifício Num Único Parceiro';
+          document.getElementById('heroSubtitle').innerHTML = 'Descubra em 60 segundos o plano preventivo <strong>Obelisco Care</strong> ideal para o seu condomínio ou edifício na Grande Lisboa, com relatórios periódicos para a administração.';
+        } else if (angulo === 'quadro_antes_depois') {
+          document.getElementById('heroEyebrow').textContent = '⚠️ Diagnóstico de Risco Elétrico & Conformidade DGEG';
+          document.getElementById('heroTitle').innerHTML = 'Disjuntores a Disparar ou <span class="accent">Quadros Sobrecarregados</span>? Avalie o Risco em 60s';
+        }
+      } catch (e) {}
+    })();
+
+    function renderQuestion() {
+      var q = QUESTIONS[currentStep];
+      var total = QUESTIONS.length;
+      var pct = Math.round(((currentStep + 1) / total) * 100);
+
+      document.getElementById('stepCounterText').innerHTML = 'Pergunta <strong>' + (currentStep + 1) + ' de ' + total + '</strong>';
+      document.getElementById('stepPercentText').textContent = pct + '% concluído';
+      document.getElementById('progressFill').style.width = pct + '%';
+      document.getElementById('btnBack').style.visibility = currentStep > 0 ? 'visible' : 'hidden';
+
+      document.getElementById('qCategory').textContent = q.category;
+      document.getElementById('qTitle').textContent = q.title;
+      document.getElementById('qHelper').textContent = q.helper;
+
+      var list = document.getElementById('optionsList');
+      list.innerHTML = '';
+
+      q.options.forEach(function (opt, idx) {
+        var isSelected = answers[q.id] && answers[q.id].value === opt.value;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'option-btn' + (isSelected ? ' selected' : '');
+        btn.innerHTML =
+          '<span class="opt-icon">' + opt.icon + '</span>' +
+          '<span class="opt-body">' +
+            '<span class="opt-title">' + opt.label + '</span>' +
+            '<span class="opt-desc">' + opt.desc + '</span>' +
+          '</span>' +
+          '<span class="opt-arrow">→</span>';
+        btn.onclick = function () {
+          selectOption(q.id, opt);
+        };
+        list.appendChild(btn);
+      });
+
+      var card = document.getElementById('questionCard');
+      card.style.animation = 'none';
+      void card.offsetWidth;
+      card.style.animation = 'fadeSlide 0.24s ease-out';
+    }
+
+    function selectOption(questionId, optionObj) {
+      answers[questionId] = optionObj;
+      if (currentStep < QUESTIONS.length - 1) {
+        currentStep += 1;
+        renderQuestion();
+      } else {
+        runDiagnosticTransition();
+      }
+    }
+
+    function prevQuestion() {
+      if (currentStep > 0) {
+        currentStep -= 1;
+        renderQuestion();
+      }
+    }
+
+    function computeQualification() {
+      var sOpt = answers.sector || QUESTIONS[0].options[0];
+      var scOpt = answers.scale || QUESTIONS[1].options[1];
+      var sysOpt = answers.systems || QUESTIONS[2].options[1];
+      var hOpt = answers.history || QUESTIONS[3].options[1];
+      var slaOpt = answers.sla || QUESTIONS[4].options[1];
+      var zOpt = answers.zone || QUESTIONS[5].options[0];
+
+      var systemsWeight = Math.min(20, Math.max(5, sysOpt.systemsCount * 5));
+      var criticalityScore = Math.min(98, sOpt.sectorWeight + scOpt.scaleWeight + hOpt.historyWeight + systemsWeight);
+      var singleIncidentLossEur = (sOpt.hourlyCost * slaOpt.expectedHours) + 350;
+
+      var recommendedTier = 'Essencial';
+      if (slaOpt.value === 8 || criticalityScore >= 80 || singleIncidentLossEur >= 4600 || scOpt.value === 'large') {
+        recommendedTier = 'Total';
+      } else if (slaOpt.value === 24 || criticalityScore >= 46 || singleIncidentLossEur >= 1850 || sysOpt.systemsCount >= 2) {
+        recommendedTier = 'Preventivo';
+      }
+
+      var riskLevel = criticalityScore >= 76 ? 'Crítico' : (criticalityScore >= 46 ? 'Moderado-Alto' : 'Controlado');
+      var riskClass = criticalityScore >= 76 ? 'critico' : (criticalityScore >= 46 ? 'moderado' : 'controlado');
+
+      return {
+        criticalityScore: criticalityScore,
+        riskLevel: riskLevel,
+        riskClass: riskClass,
+        singleIncidentLossEur: singleIncidentLossEur,
+        recommendedTier: recommendedTier,
+        zoneName: zOpt.value,
+        sectorLabel: sOpt.label,
+        systemsLabel: sysOpt.label,
+        slaHoursAsked: slaOpt.value
+      };
+    }
+
+    function runDiagnosticTransition() {
+      document.getElementById('questionCard').style.display = 'none';
+      var av = document.getElementById('analyzingView');
+      av.style.display = 'block';
+
+      ['chk1', 'chk2', 'chk3'].forEach(function (id) {
+        var el = document.getElementById(id);
+        el.classList.remove('done');
+        el.querySelector('.dot-status').textContent = '●';
+      });
+
+      setTimeout(function () {
+        var c1 = document.getElementById('chk1');
+        c1.classList.add('done');
+        c1.querySelector('.dot-status').textContent = '✓';
+      }, 380);
+
+      setTimeout(function () {
+        var c2 = document.getElementById('chk2');
+        c2.classList.add('done');
+        c2.querySelector('.dot-status').textContent = '✓';
+      }, 820);
+
+      setTimeout(function () {
+        var c3 = document.getElementById('chk3');
+        c3.classList.add('done');
+        c3.querySelector('.dot-status').textContent = '✓';
+      }, 1220);
+
+      setTimeout(function () {
+        calculatedResult = computeQualification();
+        displayedTier = calculatedResult.recommendedTier;
+        showResultScreen();
+      }, 1580);
+    }
+
+    function showResultScreen() {
+      document.getElementById('quizFlowView').style.display = 'none';
+      document.getElementById('resultView').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      var r = calculatedResult;
+      var badge = document.getElementById('resRiskBadge');
+      badge.className = 'risk-badge ' + r.riskClass;
+      badge.textContent = 'Nível de Exposição: ' + r.riskLevel;
+
+      document.getElementById('resZonePill').textContent = '✓ ' + r.zoneName + ' • Deslocação Incluída';
+      document.getElementById('kpiScore').textContent = r.criticalityScore + ' / 100';
+      document.getElementById('kpiLoss').textContent = r.singleIncidentLossEur.toLocaleString('pt-PT') + ' €';
+
+      var plan = PLANS[r.recommendedTier];
+      document.getElementById('resHeadline').textContent =
+        'Plano Ideal Identificado: ' + plan.name + ' (SLA até ' + plan.slaHours + 'h úteis)';
+
+      document.getElementById('resDiagnosisText').innerHTML =
+        'Para o perfil selecionado (<strong>' + r.sectorLabel + '</strong> em <strong>' + r.zoneName + '</strong>, com <strong>' + r.systemsLabel.toLowerCase() + '</strong>), depender de chamadas avulsas de urgência expõe a operação a cerca de <strong>' + r.singleIncidentLossEur.toLocaleString('pt-PT') + ' €</strong> por paragem crítica. O plano <strong>' + plan.shortName + '</strong> garante equipa própria com chegada prioritária, horas técnicas mensais já incluídas e zero taxas de deslocação.';
+
+      renderDisplayedPlanCard();
+    }
+
+    function setResultBilling(mode) {
+      currentBillingMode = mode;
+      document.getElementById('toggleMensal').classList.toggle('active', mode === 'mensal');
+      document.getElementById('toggleAnual').classList.toggle('active', mode === 'anual');
+      renderDisplayedPlanCard();
+    }
+
+    function switchDisplayedTier(tierKey) {
+      displayedTier = tierKey;
+      renderDisplayedPlanCard();
+    }
+
+    function renderDisplayedPlanCard() {
+      var plan = PLANS[displayedTier];
+      var isRecommended = calculatedResult && displayedTier === calculatedResult.recommendedTier;
+
+      document.getElementById('recRibbon').textContent = isRecommended
+        ? '★ Plano Recomendado Pelo Seu Diagnóstico'
+        : 'Escalão Selecionado Para Comparação';
+
+      document.getElementById('recPlanName').textContent = plan.name;
+      document.getElementById('recPlanTagline').textContent = plan.tagline;
+
+      if (currentBillingMode === 'anual') {
+        document.getElementById('recPlanPrice').innerHTML = plan.annualEur.toLocaleString('pt-PT') + ' €<small>/ano</small>';
+        var saveTag = document.getElementById('recSaveTag');
+        saveTag.style.display = 'block';
+        saveTag.textContent = 'Poupa ' + plan.annualSavingsEur.toLocaleString('pt-PT') + ' € (2 meses grátis incluídos)';
+      } else {
+        document.getElementById('recPlanPrice').innerHTML = plan.monthlyEur.toLocaleString('pt-PT') + ' €<small>/mês</small>';
+        document.getElementById('recSaveTag').style.display = 'none';
+      }
+
+      var avoidedLossYear = Math.max(plan.annualSavingsEur, (calculatedResult.singleIncidentLossEur * 2) - plan.monthlyEur * 3);
+      document.getElementById('kpiRoi').textContent = 'Poupa ' + plan.annualSavingsEur.toLocaleString('pt-PT') + ' €';
+      document.getElementById('kpiRoiSub').textContent =
+        'Na modalidade anual (-2 meses) + evita paragens de ' + calculatedResult.singleIncidentLossEur.toLocaleString('pt-PT') + ' €';
+
+      var ul = document.getElementById('recFeaturesList');
+      ul.innerHTML = '';
+      plan.features.forEach(function (feat) {
+        var li = document.createElement('li');
+        li.innerHTML = '<span class="chk">✓</span><span>' + feat + '</span>';
+        ul.appendChild(li);
+      });
+
+      ['Essencial', 'Preventivo', 'Total'].forEach(function (t) {
+        var btn = document.getElementById('pill-' + t);
+        if (btn) {
+          btn.classList.toggle('active', t === displayedTier);
+        }
+      });
+
+      refreshCtaLinks();
+    }
+
+    function refreshCtaLinks() {
+      if (!calculatedResult) return;
+      var plan = PLANS[displayedTier];
+      var name = (document.getElementById('leadName').value || '').trim();
+      var company = (document.getElementById('leadCompany').value || '').trim();
+      var phone = (document.getElementById('leadPhone').value || '').trim();
+
+      var priceLabel = currentBillingMode === 'anual'
+        ? (plan.annualEur.toLocaleString('pt-PT') + '€/ano + IVA')
+        : (plan.monthlyEur.toLocaleString('pt-PT') + '€/mês + IVA');
+
+      var lines = [
+        'Olá equipa Obelisco Radical! Fiz o Diagnóstico Obelisco Care:',
+        '• Plano pretendido: ' + plan.shortName + ' (' + priceLabel + ')',
+        '• Espaço: ' + calculatedResult.sectorLabel,
+        '• Sistemas: ' + calculatedResult.systemsLabel,
+        '• Zona: ' + calculatedResult.zoneName,
+        '• Criticidade calculada: ' + calculatedResult.criticalityScore + '/100 (' + calculatedResult.riskLevel + ')'
+      ];
+
+      if (name || company || phone) {
+        lines.push('• Contacto: ' + [name, company, phone].filter(Boolean).join(' | '));
+      }
+
+      lines.push('Gostaria de validar o diagnóstico e avançar com a proposta/subscrição.');
+
+      var waUrl = 'https://wa.me/351911132401?text=' + encodeURIComponent(lines.join('\n'));
+      document.getElementById('btnWhatsappCta').href = waUrl;
+      document.getElementById('btnSiteCta').href = 'https://obeliscoradical.pt/?plano=' + plan.shortName.toLowerCase() + '&modalidade=' + currentBillingMode + '#planos';
+
+      try {
+        localStorage.setItem('obelisco_care_quiz_lead', JSON.stringify({
+          name: name,
+          company: company,
+          phone: phone,
+          tier: displayedTier,
+          billing: currentBillingMode,
+          score: calculatedResult.criticalityScore,
+          zone: calculatedResult.zoneName,
+          updatedAt: new Date().toISOString()
+        }));
+      } catch (e) {}
+    }
+
+    function restartQuiz() {
+      answers = {};
+      currentStep = 0;
+      document.getElementById('resultView').style.display = 'none';
+      document.getElementById('analyzingView').style.display = 'none';
+      document.getElementById('questionCard').style.display = 'block';
+      document.getElementById('quizFlowView').style.display = 'block';
+      renderQuestion();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Initialize Quiz on load
+    renderQuestion();
+  </script>
+</body>
+</html>
